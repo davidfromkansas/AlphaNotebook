@@ -4,6 +4,7 @@ import { useSession } from "next-auth/react";
 import { useRouter, useParams } from "next/navigation";
 import { useEffect, useState, useRef } from "react";
 import Link from "next/link";
+import { AddSourceModal } from "@/components/add-source-modal";
 
 interface Source {
   id: string;
@@ -30,6 +31,7 @@ export default function CollectionDetailPage() {
   const [collection, setCollection] = useState<Collection | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [showAddSource, setShowAddSource] = useState(false);
   const hasFetched = useRef(false);
 
   useEffect(() => {
@@ -82,21 +84,29 @@ export default function CollectionDetailPage() {
 
   return (
     <main className="flex flex-1 flex-col p-8">
-      <div className="mb-6">
-        <Link
-          href="/library"
-          className="text-sm text-foreground/50 hover:text-brand"
+      <div className="mb-6 flex items-start justify-between">
+        <div>
+          <Link
+            href="/library"
+            className="text-sm text-foreground/50 hover:text-brand"
+          >
+            ← Library / Collections
+          </Link>
+          <h1 className="mt-1 text-2xl font-bold text-foreground">
+            {collection.name}
+          </h1>
+          {collection.description && (
+            <p className="mt-1 text-sm text-foreground/60">
+              {collection.description}
+            </p>
+          )}
+        </div>
+        <button
+          onClick={() => setShowAddSource(true)}
+          className="rounded-lg bg-brand px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-brand-dark"
         >
-          ← Library / Collections
-        </Link>
-        <h1 className="mt-1 text-2xl font-bold text-foreground">
-          {collection.name}
-        </h1>
-        {collection.description && (
-          <p className="mt-1 text-sm text-foreground/60">
-            {collection.description}
-          </p>
-        )}
+          Add source
+        </button>
       </div>
 
       {collection.sources.length === 0 ? (
@@ -107,6 +117,12 @@ export default function CollectionDetailPage() {
           <p className="mt-1 text-sm text-foreground/50">
             Add a URL to extract and save content from the web.
           </p>
+          <button
+            onClick={() => setShowAddSource(true)}
+            className="mt-4 rounded-lg bg-brand px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-brand-dark"
+          >
+            Add source
+          </button>
         </div>
       ) : (
         <div className="overflow-hidden rounded-xl border border-border">
@@ -152,6 +168,31 @@ export default function CollectionDetailPage() {
             </tbody>
           </table>
         </div>
+      )}
+
+      {showAddSource && (
+        <AddSourceModal
+          collectionId={collection.id}
+          onClose={() => setShowAddSource(false)}
+          onAdded={(source) => {
+            setCollection((prev) =>
+              prev
+                ? {
+                    ...prev,
+                    sources: [
+                      {
+                        ...source,
+                        author: null,
+                        siteName: null,
+                      },
+                      ...prev.sources,
+                    ],
+                  }
+                : prev
+            );
+            setShowAddSource(false);
+          }}
+        />
       )}
     </main>
   );
