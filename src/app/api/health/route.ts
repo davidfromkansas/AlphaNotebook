@@ -4,8 +4,15 @@ import { prisma } from "@/lib/prisma";
 export async function GET() {
   const checks: Record<string, string> = {};
 
-  // Check env vars (names only, not values)
-  checks.DATABASE_URL = process.env.DATABASE_URL ? "SET" : "MISSING";
+  // Check env vars (names only, not values — show protocol/host for URL debugging)
+  const dbUrl = process.env.DATABASE_URL;
+  const dbUrlUnpooled = process.env.DATABASE_URL_UNPOOLED;
+  checks.DATABASE_URL = dbUrl
+    ? `SET (starts with: ${dbUrl.substring(0, dbUrl.indexOf("://") + 3)}...)`
+    : "MISSING";
+  checks.DATABASE_URL_UNPOOLED = dbUrlUnpooled
+    ? `SET (starts with: ${dbUrlUnpooled.substring(0, dbUrlUnpooled.indexOf("://") + 3)}...)`
+    : "MISSING";
   checks.GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID ? "SET" : "MISSING";
   checks.GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET
     ? "SET"
@@ -16,9 +23,6 @@ export async function GET() {
     ? `SET (${process.env.NEXTAUTH_URL})`
     : "NOT SET (ok for Vercel)";
   checks.VERCEL = process.env.VERCEL ? "SET" : "MISSING";
-  checks.VERCEL_URL = process.env.VERCEL_URL
-    ? `SET (${process.env.VERCEL_URL})`
-    : "MISSING";
 
   // Check DB connection
   try {
