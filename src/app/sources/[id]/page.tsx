@@ -25,6 +25,7 @@ export default function SourceDetailPage() {
   const [source, setSource] = useState<Source | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
   const hasFetched = useRef(false);
 
   useEffect(() => {
@@ -47,9 +48,16 @@ export default function SourceDetailPage() {
     }
   }, [status, params.id]);
 
+  const handleCopy = async () => {
+    if (!source?.content) return;
+    await navigator.clipboard.writeText(source.content);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
   if (status === "loading" || isLoading) {
     return (
-      <main className="flex flex-1 flex-col p-8">
+      <main className="flex flex-1 flex-col p-4 sm:p-8">
         <div className="animate-pulse space-y-4">
           <div className="h-4 w-48 rounded bg-border" />
           <div className="h-8 w-80 rounded bg-border" />
@@ -61,7 +69,7 @@ export default function SourceDetailPage() {
 
   if (error || !source) {
     return (
-      <main className="flex flex-1 flex-col items-center justify-center p-8">
+      <main className="flex flex-1 flex-col items-center justify-center p-4 sm:p-8">
         <p className="text-lg font-medium text-foreground/70">
           Source not found
         </p>
@@ -76,20 +84,41 @@ export default function SourceDetailPage() {
   }
 
   return (
-    <main className="flex flex-1 flex-col p-8">
-      <div className="mb-6">
-        <Link
-          href={`/collections/${source.collection.id}`}
-          className="text-sm text-foreground/50 hover:text-brand"
-        >
-          ← {source.collection.name}
-        </Link>
-        <h1 className="mt-1 text-2xl font-bold text-foreground">
+    <main className="flex flex-1 flex-col p-4 sm:p-8">
+      {/* Header */}
+      <div className="mb-4 sm:mb-6">
+        <div className="flex items-center justify-between">
+          <Link
+            href={`/collections/${source.collection.id}`}
+            className="text-sm text-foreground/50 hover:text-brand"
+          >
+            <span className="sm:hidden">← {source.collection.name}</span>
+            <span className="hidden sm:inline">
+              ← {source.collection.name}
+            </span>
+          </Link>
+          {source.status === "READY" && source.content && (
+            <button
+              onClick={handleCopy}
+              className="rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-foreground/70 transition-colors hover:bg-surface sm:hidden"
+            >
+              {copied ? "Copied!" : "Copy"}
+            </button>
+          )}
+        </div>
+        <h1 className="mt-1 text-xl font-bold text-foreground sm:text-2xl">
           {source.title || "Untitled"}
         </h1>
-        <div className="mt-2 flex flex-wrap items-center gap-3 text-sm text-foreground/60">
+        <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-foreground/60 sm:text-sm">
           {source.author && <span>By {source.author}</span>}
-          {source.siteName && <span>{source.siteName}</span>}
+          {source.siteName && (
+            <>
+              {source.author && <span>·</span>}
+              <span>{source.siteName}</span>
+            </>
+          )}
+          <span>·</span>
+          <span>Added {new Date(source.createdAt).toLocaleDateString()}</span>
           <a
             href={source.url}
             target="_blank"
@@ -102,7 +131,7 @@ export default function SourceDetailPage() {
       </div>
 
       {source.status === "PENDING" && (
-        <div className="rounded-xl border border-yellow-200 bg-yellow-50 p-6 text-center">
+        <div className="rounded-xl border border-yellow-200 bg-yellow-50 p-4 text-center sm:p-6">
           <p className="font-medium text-yellow-700">Extracting content...</p>
           <p className="mt-1 text-sm text-yellow-600">
             Exa is crawling and extracting the page content. Refresh in a
@@ -112,7 +141,7 @@ export default function SourceDetailPage() {
       )}
 
       {source.status === "FAILED" && (
-        <div className="rounded-xl border border-red-200 bg-red-50 p-6 text-center">
+        <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-center sm:p-6">
           <p className="font-medium text-red-700">Extraction failed</p>
           <p className="mt-1 text-sm text-red-600">
             We couldn&apos;t extract content from this URL. The page may be
@@ -122,7 +151,16 @@ export default function SourceDetailPage() {
       )}
 
       {source.status === "READY" && source.content && (
-        <article className="prose prose-sm max-w-none rounded-xl border border-border bg-white p-6">
+        <article className="prose prose-sm max-w-none rounded-xl border border-border bg-white p-4 sm:p-6">
+          {/* Desktop copy button */}
+          <div className="mb-4 hidden items-center justify-end sm:flex">
+            <button
+              onClick={handleCopy}
+              className="rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-foreground/70 transition-colors hover:bg-surface"
+            >
+              {copied ? "Copied!" : "Copy text"}
+            </button>
+          </div>
           <div className="whitespace-pre-wrap text-foreground/80">
             {source.content}
           </div>
@@ -130,7 +168,7 @@ export default function SourceDetailPage() {
       )}
 
       {source.status === "READY" && !source.content && (
-        <div className="rounded-xl border border-border bg-white p-6 text-center">
+        <div className="rounded-xl border border-border bg-white p-4 text-center sm:p-6">
           <p className="text-foreground/60">
             No text content was extracted from this page.
           </p>

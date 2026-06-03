@@ -16,12 +16,16 @@ function LoginForm() {
   };
 
   return (
-    <main className="flex flex-1 items-center justify-center bg-surface">
-      <div className="w-full max-w-sm rounded-xl border border-border bg-white p-8 shadow-sm">
+    <main className="flex flex-1 items-center justify-center bg-surface px-4">
+      <div className="w-full max-w-sm rounded-xl border border-border bg-white p-6 shadow-sm sm:p-8">
         <div className="mb-6 text-center">
-          <h1 className="text-2xl font-bold text-brand">Alpha Notebook</h1>
-          <p className="mt-1 text-sm text-foreground/60">
-            Sign in to get started
+          <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-xl bg-brand text-xl font-bold text-white">
+            A
+          </div>
+          <h1 className="text-xl font-bold text-brand sm:text-2xl">Alpha</h1>
+          <p className="mt-2 text-sm text-foreground/60">
+            Organize sources, read extracted content, and ask grounded questions
+            from your library.
           </p>
         </div>
 
@@ -29,7 +33,7 @@ function LoginForm() {
           <div className="mb-4 rounded-md bg-red-50 p-3 text-sm text-red-700">
             {error === "OAuthAccountNotLinked"
               ? "This email is already linked to another account."
-              : "Something went wrong. Please try again."}
+              : "Authentication failed. Try again to continue."}
           </div>
         )}
 
@@ -56,8 +60,12 @@ function LoginForm() {
               fill="#EA4335"
             />
           </svg>
-          {isLoading ? "Signing in..." : "Sign in with Google"}
+          {isLoading ? "Signing in..." : "Continue with Google"}
         </button>
+
+        <p className="mt-4 text-center text-xs text-foreground/40">
+          By continuing you agree to the Terms and Privacy Policy.
+        </p>
       </div>
     </main>
   );
@@ -67,10 +75,15 @@ export default function LoginPage() {
   return (
     <Suspense
       fallback={
-        <main className="flex flex-1 items-center justify-center bg-surface">
-          <div className="w-full max-w-sm rounded-xl border border-border bg-white p-8 shadow-sm">
+        <main className="flex flex-1 items-center justify-center bg-surface px-4">
+          <div className="w-full max-w-sm rounded-xl border border-border bg-white p-6 shadow-sm sm:p-8">
             <div className="mb-6 text-center">
-              <h1 className="text-2xl font-bold text-brand">Alpha Notebook</h1>
+              <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-xl bg-brand text-xl font-bold text-white">
+                A
+              </div>
+              <h1 className="text-xl font-bold text-brand sm:text-2xl">
+                Alpha
+              </h1>
               <p className="mt-1 text-sm text-foreground/60">Loading...</p>
             </div>
           </div>
