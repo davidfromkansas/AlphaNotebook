@@ -11,9 +11,23 @@ const globalForPrisma = globalThis as unknown as {
   prisma: PrismaClient | undefined;
 };
 
+function getDatabaseUrl(): string {
+  // Prefer unpooled URL for direct WebSocket connections (Neon + Vercel)
+  const url =
+    process.env.DATABASE_URL_UNPOOLED ||
+    process.env.POSTGRES_URL_NON_POOLED ||
+    process.env.DATABASE_URL ||
+    process.env.POSTGRES_URL;
+  if (!url) {
+    throw new Error("No database URL found in environment variables");
+  }
+  // Normalize postgres:// to postgresql:// for compatibility
+  return url.replace(/^postgres:\/\//, "postgresql://");
+}
+
 function createPrismaClient() {
   const adapter = new PrismaNeon({
-    connectionString: process.env.DATABASE_URL!,
+    connectionString: getDatabaseUrl(),
   });
   return new PrismaClient({ adapter });
 }
