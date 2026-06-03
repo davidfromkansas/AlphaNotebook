@@ -22,32 +22,38 @@ Collect, extract, and organize web content into structured collections.
 ### Setup
 
 1. Clone the repo:
+
    ```bash
    git clone https://github.com/davidfromkansas/AlphaNotebook.git
    cd AlphaNotebook
    ```
 
 2. Install dependencies:
+
    ```bash
    npm install
    ```
 
 3. Copy the environment file and fill in your values:
+
    ```bash
    cp .env.example .env
    ```
 
 4. Generate the Prisma client:
+
    ```bash
    npx prisma generate
    ```
 
 5. Run database migrations:
+
    ```bash
    npx prisma migrate dev
    ```
 
 6. Start the dev server:
+
    ```bash
    npm run dev
    ```
@@ -69,9 +75,9 @@ prisma/
 
 ## Scripts
 
-| Command          | Description              |
-| ---------------- | ------------------------ |
-| `npm run dev`    | Start dev server         |
-| `npm run build`  | Production build         |
-| `npm run start`  | Start production server  |
-| `npm run lint`   | Run ESLint               |
+| Command         | Description             |
+| --------------- | ----------------------- |
+| `npm run dev`   | Start dev server        |
+| `npm run build` | Production build        |
+| `npm run start` | Start production server |
+| `npm run lint`  | Run ESLint              |
