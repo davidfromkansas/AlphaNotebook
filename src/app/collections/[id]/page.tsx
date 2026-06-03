@@ -1,0 +1,174 @@
+"use client";
+
+import { useSession } from "next-auth/react";
+import { useRouter, useParams } from "next/navigation";
+import { useEffect, useState, useRef } from "react";
+import Link from "next/link";
+
+interface Source {
+  id: string;
+  url: string;
+  title: string | null;
+  author: string | null;
+  siteName: string | null;
+  status: "PENDING" | "READY" | "FAILED";
+  createdAt: string;
+}
+
+interface Collection {
+  id: string;
+  name: string;
+  description: string | null;
+  createdAt: string;
+  sources: Source[];
+}
+
+export default function CollectionDetailPage() {
+  const { status } = useSession();
+  const router = useRouter();
+  const params = useParams();
+  const [collection, setCollection] = useState<Collection | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const hasFetched = useRef(false);
+
+  useEffect(() => {
+    if (status === "unauthenticated") {
+      router.push("/login");
+    }
+  }, [status, router]);
+
+  useEffect(() => {
+    if (status === "authenticated" && !hasFetched.current) {
+      hasFetched.current = true;
+      fetch(`/api/collections/${params.id}`)
+        .then((res) => {
+          if (!res.ok) throw new Error("Not found");
+          return res.json();
+        })
+        .then((data) => setCollection(data))
+        .catch((err) => setError(err.message))
+        .finally(() => setIsLoading(false));
+    }
+  }, [status, params.id]);
+
+  if (status === "loading" || isLoading) {
+    return (
+      <main className="flex flex-1 flex-col p-8">
+        <div className="animate-pulse space-y-4">
+          <div className="h-4 w-32 rounded bg-border" />
+          <div className="h-8 w-64 rounded bg-border" />
+          <div className="h-64 rounded-xl bg-border" />
+        </div>
+      </main>
+    );
+  }
+
+  if (error || !collection) {
+    return (
+      <main className="flex flex-1 flex-col items-center justify-center p-8">
+        <p className="text-lg font-medium text-foreground/70">
+          Collection not found
+        </p>
+        <Link
+          href="/library"
+          className="mt-2 text-sm text-brand hover:underline"
+        >
+          ← Back to Library
+        </Link>
+      </main>
+    );
+  }
+
+  return (
+    <main className="flex flex-1 flex-col p-8">
+      <div className="mb-6">
+        <Link
+          href="/library"
+          className="text-sm text-foreground/50 hover:text-brand"
+        >
+          ← Library / Collections
+        </Link>
+        <h1 className="mt-1 text-2xl font-bold text-foreground">
+          {collection.name}
+        </h1>
+        {collection.description && (
+          <p className="mt-1 text-sm text-foreground/60">
+            {collection.description}
+          </p>
+        )}
+      </div>
+
+      {collection.sources.length === 0 ? (
+        <div className="flex flex-1 flex-col items-center justify-center rounded-xl border border-dashed border-border p-12">
+          <p className="text-lg font-medium text-foreground/70">
+            No sources yet
+          </p>
+          <p className="mt-1 text-sm text-foreground/50">
+            Add a URL to extract and save content from the web.
+          </p>
+        </div>
+      ) : (
+        <div className="overflow-hidden rounded-xl border border-border">
+          <table className="w-full text-left text-sm">
+            <thead className="border-b border-border bg-surface">
+              <tr>
+                <th className="px-4 py-3 font-medium text-foreground/70">
+                  Title
+                </th>
+                <th className="px-4 py-3 font-medium text-foreground/70">
+                  Source
+                </th>
+                <th className="px-4 py-3 font-medium text-foreground/70">
+                  Status
+                </th>
+                <th className="px-4 py-3 font-medium text-foreground/70">
+                  Added
+                </th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-border">
+              {collection.sources.map((source) => (
+                <tr key={source.id} className="hover:bg-surface/50">
+                  <td className="px-4 py-3">
+                    <Link
+                      href={`/sources/${source.id}`}
+                      className="font-medium text-foreground hover:text-brand"
+                    >
+                      {source.title || "Untitled"}
+                    </Link>
+                  </td>
+                  <td className="px-4 py-3 text-foreground/60">
+                    {source.siteName || new URL(source.url).hostname}
+                  </td>
+                  <td className="px-4 py-3">
+                    <StatusBadge status={source.status} />
+                  </td>
+                  <td className="px-4 py-3 text-foreground/60">
+                    {new Date(source.createdAt).toLocaleDateString()}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </main>
+  );
+}
+
+function StatusBadge({ status }: { status: Source["status"] }) {
+  const styles = {
+    READY: "bg-green-50 text-green-700 border-green-200",
+    PENDING: "bg-yellow-50 text-yellow-700 border-yellow-200",
+    FAILED: "bg-red-50 text-red-700 border-red-200",
+  };
+
+  return (
+    <span
+      className={`inline-block rounded-full border px-2 py-0.5 text-xs font-medium ${styles[status]}`}
+    >
+      {status.toLowerCase()}
+    </span>
+  );
+}
