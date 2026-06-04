@@ -51,12 +51,26 @@ export function CreateCollectionModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center">
+    <div className="fixed inset-0 z-50 flex items-end justify-center sm:items-center">
       <div className="absolute inset-0 bg-black/40" onClick={onClose} />
-      <div className="relative w-full max-w-md rounded-xl bg-white p-6 shadow-lg">
-        <h2 className="text-lg font-semibold text-foreground">
-          Create collection
-        </h2>
+      <div className="relative w-full rounded-t-2xl bg-white p-6 shadow-lg sm:max-w-md sm:rounded-xl">
+        <div className="flex items-start justify-between">
+          <div>
+            <h2 className="text-lg font-semibold text-foreground">
+              New collection
+            </h2>
+            <p className="mt-0.5 text-sm text-foreground/50 sm:hidden">
+              Create a collection to organize related sources.
+            </p>
+          </div>
+          <button
+            onClick={onClose}
+            className="ml-4 text-xl text-foreground/40 hover:text-foreground/70 sm:hidden"
+            aria-label="Close"
+          >
+            ×
+          </button>
+        </div>
 
         <form onSubmit={handleSubmit} className="mt-4 space-y-4">
           <div>
@@ -72,7 +86,7 @@ export function CreateCollectionModal({
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder="e.g. Research Papers"
-              className="mt-1 w-full rounded-lg border border-border px-3 py-2 text-sm focus:border-brand focus:outline-none focus:ring-1 focus:ring-brand"
+              className="mt-1 w-full rounded-lg border border-border px-3 py-2.5 text-sm focus:border-brand focus:outline-none focus:ring-1 focus:ring-brand"
               autoFocus
             />
           </div>
@@ -90,7 +104,7 @@ export function CreateCollectionModal({
               onChange={(e) => setDescription(e.target.value)}
               placeholder="What is this collection about?"
               rows={3}
-              className="mt-1 w-full rounded-lg border border-border px-3 py-2 text-sm focus:border-brand focus:outline-none focus:ring-1 focus:ring-brand"
+              className="mt-1 w-full rounded-lg border border-border px-3 py-2.5 text-sm focus:border-brand focus:outline-none focus:ring-1 focus:ring-brand"
             />
           </div>
 
@@ -100,16 +114,16 @@ export function CreateCollectionModal({
             <button
               type="button"
               onClick={onClose}
-              className="rounded-lg border border-border px-4 py-2 text-sm font-medium text-foreground/70 transition-colors hover:bg-surface"
+              className="rounded-lg border border-border px-4 py-2.5 text-sm font-medium text-foreground/70 transition-colors hover:bg-surface"
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={!name.trim() || isSubmitting}
-              className="rounded-lg bg-brand px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-brand-dark disabled:opacity-50"
+              className="rounded-lg bg-brand px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-brand-dark disabled:opacity-50"
             >
-              {isSubmitting ? "Creating..." : "Create"}
+              {isSubmitting ? "Creating..." : "Save"}
             </button>
           </div>
         </form>

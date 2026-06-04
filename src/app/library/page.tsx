@@ -47,7 +47,7 @@ export default function LibraryPage() {
 
   if (status === "loading" || isLoading) {
     return (
-      <main className="flex flex-1 flex-col p-8">
+      <main className="flex flex-1 flex-col p-4 sm:p-8">
         <div className="animate-pulse space-y-4">
           <div className="h-8 w-48 rounded bg-border" />
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -61,10 +61,12 @@ export default function LibraryPage() {
   }
 
   return (
-    <main className="flex flex-1 flex-col p-8">
+    <main className="flex flex-1 flex-col p-4 pb-20 sm:p-8 sm:pb-8">
       {/* Header */}
       <div className="mb-6 flex items-center justify-between">
-        <p className="text-sm text-foreground/50">← Library / Collections</p>
+        <p className="hidden text-sm text-foreground/50 sm:block">
+          ← Library / Collections
+        </p>
         <div className="flex items-center gap-3">
           {session?.user?.image ? (
             <Image
@@ -79,7 +81,7 @@ export default function LibraryPage() {
               {session?.user?.name?.charAt(0) || "U"}
             </div>
           )}
-          <span className="text-sm text-foreground/60">
+          <span className="hidden text-sm text-foreground/60 sm:inline">
             {session?.user?.name}
           </span>
         </div>
@@ -92,14 +94,14 @@ export default function LibraryPage() {
         </h1>
         <button
           onClick={() => setShowModal(true)}
-          className="rounded-lg bg-brand px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-brand-dark"
+          className="hidden rounded-lg bg-brand px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-brand-dark sm:block"
         >
           New collection
         </button>
       </div>
 
       {collections.length === 0 ? (
-        <div className="flex flex-1 flex-col items-center justify-center rounded-xl border border-dashed border-border p-12">
+        <div className="flex flex-1 flex-col items-center justify-center rounded-xl border border-dashed border-border p-8 sm:p-12">
           <svg
             className="mb-4 h-12 w-12 text-foreground/30"
             fill="none"
@@ -116,7 +118,7 @@ export default function LibraryPage() {
           <p className="text-lg font-medium text-foreground/70">
             No collections yet
           </p>
-          <p className="mt-1 max-w-sm text-center text-sm text-foreground/50">
+          <p className="mt-1 text-center text-sm text-foreground/50">
             Create your first collection to organize sources, extracted content,
             and grounded questions in one place.
           </p>
@@ -141,45 +143,77 @@ export default function LibraryPage() {
           </button>
         </div>
       ) : (
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {collections.map((collection) => (
-            <a
-              key={collection.id}
-              href={`/collections/${collection.id}`}
-              className="rounded-xl border border-border bg-white p-5 transition-shadow hover:shadow-md"
-            >
-              <div className="flex items-center justify-between">
-                <h3 className="font-semibold text-foreground">
-                  {collection.name}
-                </h3>
-                <span className="text-sm text-brand">Open →</span>
-              </div>
-              <p className="mt-2 text-xs text-foreground/50">
-                {collection._count.sources} source
-                {collection._count.sources !== 1 ? "s" : ""}
-              </p>
-              <div className="mt-3">
-                <p className="text-xs font-medium text-foreground/40">Recent</p>
-                {collection.sources.length > 0 ? (
-                  <ul className="mt-1 space-y-0.5">
-                    {collection.sources.slice(0, 2).map((source) => (
-                      <li
-                        key={source.id}
-                        className="truncate text-sm text-foreground/70"
-                      >
-                        {source.title || "Untitled"}
-                      </li>
-                    ))}
-                  </ul>
-                ) : (
-                  <p className="mt-1 text-sm text-foreground/40">
-                    No sources yet
+        <>
+          {/* Collection cards */}
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4 lg:grid-cols-3">
+            {collections.map((collection) => (
+              <a
+                key={collection.id}
+                href={`/collections/${collection.id}`}
+                className="rounded-xl border border-border bg-white p-4 transition-shadow hover:shadow-md sm:p-5"
+              >
+                <div className="flex items-start justify-between">
+                  <div className="min-w-0 flex-1">
+                    <h3 className="font-semibold text-foreground">
+                      {collection.name}
+                    </h3>
+                    <p className="mt-0.5 text-xs text-foreground/50">
+                      {collection._count.sources} source
+                      {collection._count.sources !== 1 ? "s" : ""}
+                    </p>
+                  </div>
+                  <span className="ml-2 shrink-0 text-sm text-brand">
+                    Open →
+                  </span>
+                </div>
+                <div className="mt-3 border-t border-border pt-3">
+                  <p className="mb-1 text-xs font-medium text-foreground/40">
+                    Recent
                   </p>
-                )}
-              </div>
-            </a>
-          ))}
-        </div>
+                  {collection.sources.length > 0 ? (
+                    <ul className="space-y-0.5">
+                      {collection.sources.slice(0, 2).map((source) => (
+                        <li
+                          key={source.id}
+                          className="truncate text-sm text-foreground/70"
+                        >
+                          {source.title || "Untitled"}
+                        </li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <p className="text-sm text-foreground/40">
+                      No sources yet
+                    </p>
+                  )}
+                </div>
+              </a>
+            ))}
+          </div>
+
+          {/* Mobile sticky FAB */}
+          <div className="fixed inset-x-0 bottom-0 border-t border-border bg-white p-4 sm:hidden">
+            <button
+              onClick={() => setShowModal(true)}
+              className="flex w-full items-center justify-center gap-2 rounded-lg bg-brand px-4 py-3 text-sm font-medium text-white transition-colors hover:bg-brand-dark"
+            >
+              <svg
+                className="h-4 w-4"
+                fill="none"
+                viewBox="0 0 24 24"
+                strokeWidth={2}
+                stroke="currentColor"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M12 4.5v15m7.5-7.5h-15"
+                />
+              </svg>
+              New collection
+            </button>
+          </div>
+        </>
       )}
 
       {showModal && (
