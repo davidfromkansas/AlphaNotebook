@@ -2,9 +2,10 @@
 
 import { useSession } from "next-auth/react";
 import { useRouter, useParams } from "next/navigation";
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, useCallback } from "react";
 import Link from "next/link";
 import { AddSourceModal } from "@/components/add-source-modal";
+import { EditSourceTitleModal } from "@/components/edit-source-title-modal";
 
 interface Source {
   id: string;
@@ -34,7 +35,21 @@ export default function CollectionDetailPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showAddSource, setShowAddSource] = useState(false);
+  const [editingSource, setEditingSource] = useState<Source | null>(null);
+  const [openMenuId, setOpenMenuId] = useState<string | null>(null);
   const hasFetched = useRef(false);
+
+  const handleDelete = useCallback(async (sourceId: string) => {
+    const res = await fetch(`/api/sources/${sourceId}`, { method: "DELETE" });
+    if (res.ok) {
+      setCollection((prev) =>
+        prev
+          ? { ...prev, sources: prev.sources.filter((s) => s.id !== sourceId) }
+          : prev
+      );
+    }
+    setOpenMenuId(null);
+  }, []);
 
   useEffect(() => {
     if (status === "unauthenticated") {
@@ -157,6 +172,7 @@ export default function CollectionDetailPage() {
                   <th className="px-4 py-3 font-medium text-foreground/70">
                     Added
                   </th>
+                  <th className="w-10 px-4 py-3" />
                 </tr>
               </thead>
               <tbody className="divide-y divide-border">
@@ -184,6 +200,23 @@ export default function CollectionDetailPage() {
                     <td className="px-4 py-3 text-foreground/60">
                       {new Date(source.createdAt).toLocaleDateString()}
                     </td>
+                    <td className="px-4 py-3">
+                      <SourceMenu
+                        sourceId={source.id}
+                        isOpen={openMenuId === source.id}
+                        onToggle={() =>
+                          setOpenMenuId(
+                            openMenuId === source.id ? null : source.id
+                          )
+                        }
+                        onClose={() => setOpenMenuId(null)}
+                        onEdit={() => {
+                          setEditingSource(source);
+                          setOpenMenuId(null);
+                        }}
+                        onDelete={() => handleDelete(source.id)}
+                      />
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -193,12 +226,14 @@ export default function CollectionDetailPage() {
           {/* Mobile card list */}
           <div className="space-y-2 sm:hidden">
             {collection.sources.map((source) => (
-              <Link
+              <div
                 key={source.id}
-                href={`/sources/${source.id}`}
                 className="flex items-center justify-between rounded-xl border border-border bg-white p-4 transition-colors active:bg-surface/50"
               >
-                <div className="min-w-0 flex-1">
+                <Link
+                  href={`/sources/${source.id}`}
+                  className="min-w-0 flex-1"
+                >
                   <p className="font-medium text-foreground">
                     {source.title || "Untitled"}
                   </p>
@@ -215,9 +250,25 @@ export default function CollectionDetailPage() {
                   <div className="mt-1.5">
                     <StatusBadge status={source.status} />
                   </div>
+                </Link>
+                <div className="ml-3 shrink-0">
+                  <SourceMenu
+                    sourceId={source.id}
+                    isOpen={openMenuId === source.id}
+                    onToggle={() =>
+                      setOpenMenuId(
+                        openMenuId === source.id ? null : source.id
+                      )
+                    }
+                    onClose={() => setOpenMenuId(null)}
+                    onEdit={() => {
+                      setEditingSource(source);
+                      setOpenMenuId(null);
+                    }}
+                    onDelete={() => handleDelete(source.id)}
+                  />
                 </div>
-                <span className="ml-3 shrink-0 text-foreground/30">›</span>
-              </Link>
+              </div>
             ))}
           </div>
         </>
@@ -274,7 +325,108 @@ export default function CollectionDetailPage() {
           }}
         />
       )}
+
+      {editingSource && (
+        <EditSourceTitleModal
+          sourceId={editingSource.id}
+          currentTitle={editingSource.title || ""}
+          onClose={() => setEditingSource(null)}
+          onSaved={(newTitle) => {
+            setCollection((prev) =>
+              prev
+                ? {
+                    ...prev,
+                    sources: prev.sources.map((s) =>
+                      s.id === editingSource.id
+                        ? { ...s, title: newTitle }
+                        : s
+                    ),
+                  }
+                : prev
+            );
+            setEditingSource(null);
+          }}
+        />
+      )}
     </main>
+  );
+}
+
+function SourceMenu({
+  sourceId,
+  isOpen,
+  onToggle,
+  onClose,
+  onEdit,
+  onDelete,
+}: {
+  sourceId: string;
+  isOpen: boolean;
+  onToggle: () => void;
+  onClose: () => void;
+  onEdit: () => void;
+  onDelete: () => void;
+}) {
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleClickOutside = (e: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        onClose();
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [isOpen, onClose]);
+
+  return (
+    <div className="relative" ref={menuRef}>
+      <button
+        onClick={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          onToggle();
+        }}
+        className="flex h-8 w-8 items-center justify-center rounded-lg text-foreground/40 transition-colors hover:bg-surface hover:text-foreground/70"
+        aria-label={`Actions for source ${sourceId}`}
+      >
+        <svg
+          className="h-4 w-4"
+          fill="currentColor"
+          viewBox="0 0 16 16"
+        >
+          <circle cx="8" cy="3" r="1.5" />
+          <circle cx="8" cy="8" r="1.5" />
+          <circle cx="8" cy="13" r="1.5" />
+        </svg>
+      </button>
+
+      {isOpen && (
+        <div className="absolute right-0 z-20 mt-1 w-44 rounded-lg border border-border bg-white py-1 shadow-lg">
+          <button
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              onEdit();
+            }}
+            className="flex w-full items-center px-3 py-2 text-left text-sm text-foreground hover:bg-surface"
+          >
+            Edit Source Title
+          </button>
+          <button
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              onDelete();
+            }}
+            className="flex w-full items-center px-3 py-2 text-left text-sm text-red-600 hover:bg-red-50"
+          >
+            Delete Source
+          </button>
+        </div>
+      )}
+    </div>
   );
 }
 
