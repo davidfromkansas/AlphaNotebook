@@ -140,8 +140,11 @@ async function handlePdfUpload(request: Request, userId: string) {
     // extraction failed — still save the PDF but mark as failed
   }
 
+  const title = file.name.replace(/\.pdf$/i, "");
+
   const source = await prisma.source.create({
     data: {
+      title,
       collectionId,
       sourceType: "PDF",
       fileName: file.name,
