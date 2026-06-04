@@ -262,6 +262,15 @@ export default function SourceDetailPage() {
       {/* Original PDF view */}
       {source.status === "READY" && activeTab === "pdf" && isPdf && (
         <div className="flex flex-1 flex-col rounded-xl border border-border bg-white overflow-hidden h-[calc(100vh-14rem)] min-h-[400px]">
+          {/* Desktop download button */}
+          <div className="hidden items-center justify-end border-b border-border px-4 py-2 sm:flex">
+            <button
+              onClick={handleDownload}
+              className="rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-foreground/70 transition-colors hover:bg-surface"
+            >
+              Download
+            </button>
+          </div>
           <PdfViewer
             url={`/api/sources/${source.id}/pdf`}
             fileName={source.fileName || undefined}
