@@ -4,6 +4,7 @@ import { useSession } from "next-auth/react";
 import { useRouter, useParams } from "next/navigation";
 import { useEffect, useState, useRef } from "react";
 import Link from "next/link";
+import PdfViewer from "@/components/pdf-viewer";
 
 interface Source {
   id: string;
@@ -249,20 +250,10 @@ export default function SourceDetailPage() {
 
       {/* Original PDF view */}
       {source.status === "READY" && activeTab === "pdf" && isPdf && (
-        <div className="flex flex-1 flex-col rounded-xl border border-border bg-white overflow-hidden">
-          {/* Desktop download button */}
-          <div className="hidden items-center justify-end border-b border-border px-4 py-2 sm:flex">
-            <button
-              onClick={handleDownload}
-              className="rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-foreground/70 transition-colors hover:bg-surface"
-            >
-              Download PDF
-            </button>
-          </div>
-          <iframe
-            src={`/api/sources/${source.id}/pdf`}
-            className="h-[calc(100vh-20rem)] w-full min-h-[400px]"
-            title={source.fileName || "PDF viewer"}
+        <div className="flex flex-1 flex-col rounded-xl border border-border bg-white overflow-hidden h-[calc(100vh-14rem)] min-h-[400px]">
+          <PdfViewer
+            url={`/api/sources/${source.id}/pdf`}
+            fileName={source.fileName || undefined}
           />
         </div>
       )}
