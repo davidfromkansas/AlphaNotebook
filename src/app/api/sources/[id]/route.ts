@@ -31,5 +31,8 @@ export async function GET(
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
 
-  return NextResponse.json(source);
+  // Exclude pdfData from the response — served via /api/sources/[id]/pdf
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const { pdfData: _, ...sourceWithoutPdf } = source;
+  return NextResponse.json(sourceWithoutPdf);
 }

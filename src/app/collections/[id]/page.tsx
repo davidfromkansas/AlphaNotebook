@@ -8,10 +8,12 @@ import { AddSourceModal } from "@/components/add-source-modal";
 
 interface Source {
   id: string;
-  url: string;
+  url: string | null;
   title: string | null;
   author: string | null;
   siteName: string | null;
+  sourceType: "URL" | "PDF";
+  fileName: string | null;
   status: "PENDING" | "READY" | "FAILED";
   createdAt: string;
 }
@@ -169,7 +171,12 @@ export default function CollectionDetailPage() {
                       </Link>
                     </td>
                     <td className="px-4 py-3 text-foreground/60">
-                      {source.siteName || new URL(source.url).hostname}
+                      {source.sourceType === "PDF"
+                        ? source.fileName || "PDF"
+                        : source.siteName ||
+                          (source.url
+                            ? new URL(source.url).hostname
+                            : "—")}
                     </td>
                     <td className="px-4 py-3">
                       <StatusBadge status={source.status} />
@@ -196,7 +203,12 @@ export default function CollectionDetailPage() {
                     {source.title || "Untitled"}
                   </p>
                   <p className="mt-1 text-xs text-foreground/50">
-                    {source.siteName || new URL(source.url).hostname}
+                    {source.sourceType === "PDF"
+                      ? source.fileName || "PDF"
+                      : source.siteName ||
+                        (source.url
+                          ? new URL(source.url).hostname
+                          : "—")}
                     {" · "}
                     {new Date(source.createdAt).toLocaleDateString()}
                   </p>
@@ -250,6 +262,8 @@ export default function CollectionDetailPage() {
                         ...source,
                         author: null,
                         siteName: null,
+                        sourceType: source.sourceType || "URL",
+                        fileName: source.fileName || null,
                       },
                       ...prev.sources,
                     ],

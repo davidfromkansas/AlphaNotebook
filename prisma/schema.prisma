@@ -66,7 +66,10 @@ model Collection {
 model Source {
   id           String           @id @default(cuid())
   collectionId String
-  url          String
+  sourceType   SourceType       @default(URL)
+  url          String?
+  fileName     String?
+  pdfData      Bytes?
   title        String?
   author       String?
   siteName     String?
@@ -75,6 +78,11 @@ model Source {
   status       SourceStatus     @default(PENDING)
   createdAt    DateTime         @default(now())
   collection   Collection       @relation(fields: [collectionId], references: [id], onDelete: Cascade)
+}
+
+enum SourceType {
+  URL
+  PDF
 }
 
 enum SourceStatus {

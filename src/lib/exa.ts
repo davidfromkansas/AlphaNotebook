@@ -22,14 +22,18 @@ function getGoogleDriveFileId(url: string): string | null {
   return match ? match[1] : null;
 }
 
+export async function parsePdfBuffer(buffer: Buffer): Promise<string> {
+  const data = await pdf(buffer);
+  return data.text;
+}
+
 async function extractPdfFromUrl(downloadUrl: string): Promise<string> {
   const res = await fetch(downloadUrl, { redirect: "follow" });
   if (!res.ok) {
     throw new Error(`Failed to download PDF: ${res.status}`);
   }
   const buffer = Buffer.from(await res.arrayBuffer());
-  const data = await pdf(buffer);
-  return data.text;
+  return parsePdfBuffer(buffer);
 }
 
 export async function extractContent(url: string): Promise<ExaContent> {
