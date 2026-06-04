@@ -367,22 +367,26 @@ function SourceMenu({
   onEdit: () => void;
   onDelete: () => void;
 }) {
-  const menuRef = useRef<HTMLDivElement>(null);
+  const buttonRef = useRef<HTMLButtonElement>(null);
+  const [position, setPosition] = useState<{ top: number; right: number }>({
+    top: 0,
+    right: 0,
+  });
 
   useEffect(() => {
-    if (!isOpen) return;
-    const handleClickOutside = (e: MouseEvent) => {
-      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
-        onClose();
-      }
-    };
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, [isOpen, onClose]);
+    if (isOpen && buttonRef.current) {
+      const rect = buttonRef.current.getBoundingClientRect();
+      setPosition({
+        top: rect.bottom + 4,
+        right: window.innerWidth - rect.right,
+      });
+    }
+  }, [isOpen]);
 
   return (
-    <div className="relative" ref={menuRef}>
+    <>
       <button
+        ref={buttonRef}
         onClick={(e) => {
           e.preventDefault();
           e.stopPropagation();
@@ -403,30 +407,43 @@ function SourceMenu({
       </button>
 
       {isOpen && (
-        <div className="absolute right-0 z-20 mt-1 w-44 rounded-lg border border-border bg-white py-1 shadow-lg">
-          <button
+        <>
+          <div
+            className="fixed inset-0 z-40"
             onClick={(e) => {
               e.preventDefault();
               e.stopPropagation();
-              onEdit();
+              onClose();
             }}
-            className="flex w-full items-center px-3 py-2 text-left text-sm text-foreground hover:bg-surface"
+          />
+          <div
+            className="fixed z-50 w-44 rounded-lg border border-border bg-white py-1 shadow-lg"
+            style={{ top: position.top, right: position.right }}
           >
-            Edit Source Title
-          </button>
-          <button
-            onClick={(e) => {
-              e.preventDefault();
-              e.stopPropagation();
-              onDelete();
-            }}
-            className="flex w-full items-center px-3 py-2 text-left text-sm text-red-600 hover:bg-red-50"
-          >
-            Delete Source
-          </button>
-        </div>
+            <button
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                onEdit();
+              }}
+              className="flex w-full items-center px-3 py-2 text-left text-sm text-foreground hover:bg-surface"
+            >
+              Edit Source Title
+            </button>
+            <button
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                onDelete();
+              }}
+              className="flex w-full items-center px-3 py-2 text-left text-sm text-red-600 hover:bg-red-50"
+            >
+              Delete Source
+            </button>
+          </div>
+        </>
       )}
-    </div>
+    </>
   );
 }
 
