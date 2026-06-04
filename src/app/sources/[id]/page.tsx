@@ -4,7 +4,18 @@ import { useSession } from "next-auth/react";
 import { useRouter, useParams } from "next/navigation";
 import { useEffect, useState, useRef } from "react";
 import Link from "next/link";
-import PdfViewer from "@/components/pdf-viewer";
+import dynamic from "next/dynamic";
+
+const PdfViewer = dynamic(() => import("@/components/pdf-viewer"), {
+  ssr: false,
+  loading: () => (
+    <div className="flex items-center justify-center py-12">
+      <div className="animate-pulse text-sm text-foreground/50">
+        Loading PDF viewer…
+      </div>
+    </div>
+  ),
+});
 
 interface Source {
   id: string;
