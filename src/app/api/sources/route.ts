@@ -142,6 +142,7 @@ async function handlePdfUpload(request: Request, userId: string) {
 
   const source = await prisma.source.create({
     data: {
+      title: file.name,
       collectionId,
       sourceType: "PDF",
       fileName: file.name,
