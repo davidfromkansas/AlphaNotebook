@@ -6,6 +6,11 @@ import { useEffect, useState, useRef } from "react";
 import Link from "next/link";
 import dynamic from "next/dynamic";
 
+const MarkdownRenderer = dynamic(
+  () => import("@/components/markdown-renderer"),
+  { ssr: false }
+);
+
 const PdfViewer = dynamic(() => import("@/components/pdf-viewer"), {
   ssr: false,
   loading: () => (
@@ -244,9 +249,7 @@ export default function SourceDetailPage() {
                     {copied ? "Copied!" : "Copy text"}
                   </button>
                 </div>
-                <div className="whitespace-pre-wrap text-foreground/80">
-                  {source.content}
-                </div>
+                <MarkdownRenderer content={source.content} />
               </article>
             ) : (
               <div className="rounded-xl border border-border bg-white p-4 text-center sm:p-6">

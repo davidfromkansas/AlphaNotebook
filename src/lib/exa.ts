@@ -1,6 +1,5 @@
 import Exa from "exa-js";
-// eslint-disable-next-line @typescript-eslint/no-require-imports
-const pdf = require("pdf-parse/lib/pdf-parse");
+import { WasmPdfDocument } from "pdf-oxide-wasm/nodejs";
 
 export interface ExaContent {
   title: string | null;
@@ -164,9 +163,11 @@ async function extractTweetContent(url: string): Promise<ExaContent> {
   }
 }
 
-export async function parsePdfBuffer(buffer: Buffer): Promise<string> {
-  const data = await pdf(buffer);
-  return data.text;
+export function parsePdfBuffer(buffer: Buffer): string {
+  const doc = new WasmPdfDocument(new Uint8Array(buffer));
+  const markdown = doc.toMarkdownAll();
+  doc.free();
+  return markdown;
 }
 
 async function extractPdfFromUrl(downloadUrl: string): Promise<string> {
