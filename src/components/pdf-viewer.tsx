@@ -30,7 +30,10 @@ export default function PdfViewer({ url, fileName }: PdfViewerProps) {
   useEffect(() => {
     const measure = () => {
       if (containerRef.current) {
-        setContainerWidth(containerRef.current.clientWidth);
+        // Ignore zero-width measurements (e.g. when the pane is hidden via
+        // display:none) so the loaded Document stays mounted and isn't refetched.
+        const width = containerRef.current.clientWidth;
+        if (width > 0) setContainerWidth(width);
       }
     };
     measure();

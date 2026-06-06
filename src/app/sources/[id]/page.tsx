@@ -5,6 +5,7 @@ import { useRouter, useParams } from "next/navigation";
 import { useEffect, useState, useRef } from "react";
 import Link from "next/link";
 import dynamic from "next/dynamic";
+import SourceChat, { type Citation } from "@/components/source-chat";
 
 const MarkdownRenderer = dynamic(
   () => import("@/components/markdown-renderer"),
@@ -48,13 +49,74 @@ export default function SourceDetailPage() {
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   const [activeTab, setActiveTab] = useState<ViewTab>("extracted");
+  const [collapsed, setCollapsed] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
+  const [sheetOpen, setSheetOpen] = useState(false);
   const hasFetched = useRef(false);
+  const readerRef = useRef<HTMLDivElement>(null);
+  const mobileReaderRef = useRef<HTMLDivElement>(null);
+  const autoOpenedRef = useRef<string | null>(null);
+
+  const sourceId = params.id as string;
+
+  // Track the mobile breakpoint so we can swap to the bottom-sheet layout.
+  useEffect(() => {
+    const mq = window.matchMedia("(max-width: 767px)");
+    const update = () => setIsMobile(mq.matches);
+    update();
+    mq.addEventListener("change", update);
+    return () => mq.removeEventListener("change", update);
+  }, []);
 
   useEffect(() => {
     if (status === "unauthenticated") {
       router.push("/login");
     }
   }, [status, router]);
+
+  // Restore the collapsed/split choice persisted per source.
+  useEffect(() => {
+    if (!sourceId) return;
+    const saved = localStorage.getItem(`source-chat-collapsed:${sourceId}`);
+    if (saved !== null) setCollapsed(saved === "true");
+  }, [sourceId]);
+
+  const toggleCollapsed = () => {
+    setCollapsed((prev) => {
+      const next = !prev;
+      localStorage.setItem(`source-chat-collapsed:${sourceId}`, String(next));
+      return next;
+    });
+  };
+
+  // On mobile, auto-open the Ask sheet the first time each source becomes
+  // ready (always-open behavior, but respects a manual dismiss in-session).
+  useEffect(() => {
+    if (
+      isMobile &&
+      source?.status === "READY" &&
+      autoOpenedRef.current !== source.id
+    ) {
+      autoOpenedRef.current = source.id;
+      setSheetOpen(true);
+    }
+  }, [isMobile, source?.status, source?.id]);
+
+  const handleCitationClick = (_citation: Citation) => {
+    // Until precise anchoring is wired up, surface the cited source by
+    // revealing the reader and scrolling it back to the top.
+    if (isMobile) {
+      setSheetOpen(false);
+      requestAnimationFrame(() => {
+        mobileReaderRef.current?.scrollTo({ top: 0, behavior: "smooth" });
+      });
+      return;
+    }
+    if (collapsed) toggleCollapsed();
+    requestAnimationFrame(() => {
+      readerRef.current?.scrollTo({ top: 0, behavior: "smooth" });
+    });
+  };
 
   useEffect(() => {
     if (status === "authenticated" && !hasFetched.current) {
@@ -115,10 +177,30 @@ export default function SourceDetailPage() {
     );
   }
 
+  const sourceTitle = source.title || source.fileName || "Untitled";
+
+  // Single source-of-truth for the reader content, reused by both the desktop
+  // split pane and the mobile full-screen reader (only one renders at a time).
+  const readerBody =
+    activeTab === "pdf" && isPdf ? (
+      <PdfViewer
+        url={`/api/sources/${source.id}/pdf`}
+        fileName={source.fileName || undefined}
+      />
+    ) : source.content ? (
+      <article className="prose prose-sm max-w-none p-5 sm:p-6">
+        <MarkdownRenderer content={source.content} />
+      </article>
+    ) : (
+      <div className="p-6 text-center text-foreground/60">
+        No text content was extracted from this {isPdf ? "PDF" : "page"}.
+      </div>
+    );
+
   return (
-    <main className="flex flex-1 flex-col p-4 sm:p-8">
+    <main className="flex h-[100dvh] min-h-0 flex-col overflow-hidden p-4 sm:p-8">
       {/* Header */}
-      <div className="mb-4 sm:mb-6">
+      <div className="mb-4 shrink-0 sm:mb-6">
         <div className="flex items-center justify-between">
           <Link
             href={`/collections/${source.collection.id}`}
@@ -185,32 +267,6 @@ export default function SourceDetailPage() {
         </div>
       </div>
 
-      {/* Tab toggle for PDF sources */}
-      {isPdf && source.status === "READY" && (
-        <div className="mb-4 flex gap-1 rounded-lg bg-surface p-1 self-start border border-border">
-          <button
-            onClick={() => setActiveTab("extracted")}
-            className={`rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
-              activeTab === "extracted"
-                ? "bg-white text-foreground shadow-sm"
-                : "text-foreground/50 hover:text-foreground/70"
-            }`}
-          >
-            Extracted content
-          </button>
-          <button
-            onClick={() => setActiveTab("pdf")}
-            className={`rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
-              activeTab === "pdf"
-                ? "bg-white text-foreground shadow-sm"
-                : "text-foreground/50 hover:text-foreground/70"
-            }`}
-          >
-            Original PDF
-          </button>
-        </div>
-      )}
-
       {source.status === "PENDING" && (
         <div className="rounded-xl border border-yellow-200 bg-yellow-50 p-4 text-center sm:p-6">
           <p className="font-medium text-yellow-700">Extracting content...</p>
@@ -233,53 +289,231 @@ export default function SourceDetailPage() {
         </div>
       )}
 
-      {/* Extracted content view */}
+      {/* Source reader + Ask AI chat */}
       {source.status === "READY" &&
-        (activeTab === "extracted" || !isPdf) &&
-        !(activeTab === "pdf" && isPdf) && (
+        (isMobile ? (
+          /* ---------- Mobile: full-screen reader + Ask bottom sheet ---------- */
           <>
-            {source.content ? (
-              <article className="prose prose-sm max-w-none rounded-xl border border-border bg-white p-4 sm:p-6">
-                {/* Desktop action button */}
-                <div className="mb-4 hidden items-center justify-end sm:flex">
+            <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl border border-[#E5E7EB] bg-white">
+              {/* Mobile reader header */}
+              <div className="flex shrink-0 items-center justify-between gap-2 border-b border-[#E5E7EB] px-3 py-2.5">
+                {isPdf ? (
+                  <div className="flex gap-1 rounded-lg border border-border bg-surface p-1">
+                    <button
+                      onClick={() => setActiveTab("extracted")}
+                      className={`rounded-md px-2.5 py-1 text-xs font-medium transition-colors ${
+                        activeTab === "extracted"
+                          ? "bg-white text-foreground shadow-sm"
+                          : "text-foreground/50"
+                      }`}
+                    >
+                      Extracted
+                    </button>
+                    <button
+                      onClick={() => setActiveTab("pdf")}
+                      className={`rounded-md px-2.5 py-1 text-xs font-medium transition-colors ${
+                        activeTab === "pdf"
+                          ? "bg-white text-foreground shadow-sm"
+                          : "text-foreground/50"
+                      }`}
+                    >
+                      Original
+                    </button>
+                  </div>
+                ) : (
+                  <span className="text-xs font-medium uppercase tracking-wider text-foreground/40">
+                    Extracted content
+                  </span>
+                )}
+
+                <div className="flex items-center gap-2">
+                  {activeTab === "pdf" && isPdf ? (
+                    <button
+                      onClick={handleDownload}
+                      className="rounded-lg border border-[#E5E7EB] px-2.5 py-1.5 text-xs font-medium text-foreground/70"
+                    >
+                      Download
+                    </button>
+                  ) : (
+                    source.content && (
+                      <button
+                        onClick={handleCopy}
+                        className="rounded-lg border border-[#E5E7EB] px-2.5 py-1.5 text-xs font-medium text-foreground/70"
+                      >
+                        {copied ? "Copied!" : "Copy"}
+                      </button>
+                    )
+                  )}
                   <button
-                    onClick={handleCopy}
-                    className="rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-foreground/70 transition-colors hover:bg-surface"
+                    onClick={() => setSheetOpen(true)}
+                    className="flex items-center gap-1.5 rounded-lg bg-brand px-3 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-brand-dark"
                   >
-                    {copied ? "Copied!" : "Copy text"}
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
+                      <path
+                        d="M12 3l1.6 4.4L18 9l-4.4 1.6L12 15l-1.6-4.4L6 9l4.4-1.6L12 3z"
+                        fill="currentColor"
+                      />
+                    </svg>
+                    Ask source
                   </button>
                 </div>
-                <MarkdownRenderer content={source.content} />
-              </article>
-            ) : (
-              <div className="rounded-xl border border-border bg-white p-4 text-center sm:p-6">
-                <p className="text-foreground/60">
-                  No text content was extracted from this{" "}
-                  {isPdf ? "PDF" : "page"}.
-                </p>
               </div>
-            )}
-          </>
-        )}
 
-      {/* Original PDF view */}
-      {source.status === "READY" && activeTab === "pdf" && isPdf && (
-        <div className="flex flex-1 flex-col rounded-xl border border-border bg-white overflow-hidden h-[calc(100vh-14rem)] min-h-[400px]">
-          {/* Desktop download button */}
-          <div className="hidden items-center justify-end border-b border-border px-4 py-2 sm:flex">
-            <button
-              onClick={handleDownload}
-              className="rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-foreground/70 transition-colors hover:bg-surface"
+              {/* Mobile reader content */}
+              <div
+                ref={mobileReaderRef}
+                className="min-h-0 flex-1 overflow-y-auto"
+              >
+                {readerBody}
+              </div>
+            </div>
+
+            {/* Scrim */}
+            <div
+              onClick={() => setSheetOpen(false)}
+              className={`fixed inset-0 z-40 bg-black/50 transition-opacity duration-300 ${
+                sheetOpen ? "opacity-100" : "pointer-events-none opacity-0"
+              }`}
+            />
+
+            {/* Ask bottom sheet (auto-opens on mobile) */}
+            <div
+              className={`fixed inset-x-0 bottom-0 top-12 z-50 flex flex-col overflow-hidden rounded-t-[22px] bg-white shadow-[0_-8px_30px_rgba(0,0,0,0.25)] transition-transform duration-300 ease-out ${
+                sheetOpen ? "translate-y-0" : "translate-y-full"
+              }`}
             >
-              Download
-            </button>
+              <button
+                onClick={() => setSheetOpen(false)}
+                aria-label="Dismiss"
+                className="flex shrink-0 justify-center pb-1.5 pt-2.5"
+              >
+                <span className="h-[5px] w-9 rounded-full bg-[#D1D5DB]" />
+              </button>
+              <SourceChat
+                sourceTitle={sourceTitle}
+                collapsed={false}
+                rootedInStrip
+                onClose={() => setSheetOpen(false)}
+                onCitationClick={handleCitationClick}
+              />
+            </div>
+          </>
+        ) : (
+          /* ---------- Desktop: split reader (left) + Ask chat (right) ---------- */
+          <div className="flex min-h-0 flex-1 overflow-hidden rounded-xl border border-[#E5E7EB] bg-white">
+            {/* Collapsed source rail (56px) */}
+            {collapsed && (
+              <button
+                onClick={toggleCollapsed}
+                aria-label="Expand source"
+                title="Expand source"
+                className="group flex w-14 shrink-0 flex-col items-center gap-3 border-r border-[#E5E7EB] bg-[#F7F8FA] py-4"
+              >
+                <span className="flex h-8 w-8 items-center justify-center rounded-md border border-[#E5E7EB] bg-white text-foreground/50 transition-colors group-hover:border-brand group-hover:text-brand">
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none">
+                    <path
+                      d="M9 6l6 6-6 6"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                  </svg>
+                </span>
+                <span className="mt-1 text-[11px] font-semibold uppercase tracking-wider text-foreground/40 [writing-mode:vertical-rl]">
+                  Source
+                </span>
+              </button>
+            )}
+
+            {/* Source reader pane (½ width) — kept mounted across collapse so
+                toggling does not reload the PDF or re-render the content */}
+            <div
+              className={`min-h-0 w-1/2 shrink-0 flex-col border-r border-[#E5E7EB] ${
+                collapsed ? "hidden" : "flex"
+              }`}
+            >
+              {/* Reader header */}
+              <div className="flex shrink-0 items-center justify-between gap-2 border-b border-[#E5E7EB] px-4 py-2.5">
+                {isPdf ? (
+                  <div className="flex gap-1 rounded-lg border border-border bg-surface p-1">
+                    <button
+                      onClick={() => setActiveTab("extracted")}
+                      className={`rounded-md px-3 py-1 text-xs font-medium transition-colors ${
+                        activeTab === "extracted"
+                          ? "bg-white text-foreground shadow-sm"
+                          : "text-foreground/50 hover:text-foreground/70"
+                      }`}
+                    >
+                      Extracted content
+                    </button>
+                    <button
+                      onClick={() => setActiveTab("pdf")}
+                      className={`rounded-md px-3 py-1 text-xs font-medium transition-colors ${
+                        activeTab === "pdf"
+                          ? "bg-white text-foreground shadow-sm"
+                          : "text-foreground/50 hover:text-foreground/70"
+                      }`}
+                    >
+                      Original PDF
+                    </button>
+                  </div>
+                ) : (
+                  <span className="text-xs font-medium uppercase tracking-wider text-foreground/40">
+                    Extracted content
+                  </span>
+                )}
+
+                <div className="flex items-center gap-2">
+                  {activeTab === "pdf" && isPdf ? (
+                    <button
+                      onClick={handleDownload}
+                      className="rounded-lg border border-[#E5E7EB] px-3 py-1.5 text-xs font-medium text-foreground/70 transition-colors hover:bg-[#F7F8FA]"
+                    >
+                      Download
+                    </button>
+                  ) : (
+                    source.content && (
+                      <button
+                        onClick={handleCopy}
+                        className="rounded-lg border border-[#E5E7EB] px-3 py-1.5 text-xs font-medium text-foreground/70 transition-colors hover:bg-[#F7F8FA]"
+                      >
+                        {copied ? "Copied!" : "Copy text"}
+                      </button>
+                    )
+                  )}
+                  <button
+                    onClick={toggleCollapsed}
+                    className="flex items-center gap-1.5 rounded-lg border border-[#E5E7EB] px-3 py-1.5 text-xs font-medium text-foreground/70 transition-colors hover:bg-[#F7F8FA]"
+                  >
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
+                      <path
+                        d="M15 6l-6 6 6 6"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      />
+                    </svg>
+                    Collapse
+                  </button>
+                </div>
+              </div>
+
+              {/* Reader content (scrolls independently) */}
+              <div ref={readerRef} className="min-h-0 flex-1 overflow-y-auto">
+                {readerBody}
+              </div>
+            </div>
+
+            {/* Ask AI chat pane */}
+            <SourceChat
+              sourceTitle={sourceTitle}
+              collapsed={collapsed}
+              onCitationClick={handleCitationClick}
+            />
           </div>
-          <PdfViewer
-            url={`/api/sources/${source.id}/pdf`}
-            fileName={source.fileName || undefined}
-          />
-        </div>
-      )}
+        ))}
     </main>
   );
 }
