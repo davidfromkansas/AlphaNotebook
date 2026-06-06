@@ -135,7 +135,7 @@ async function handlePdfUpload(request: Request, userId: string) {
 
   let extractedText: string | null = null;
   try {
-    extractedText = await parsePdfBuffer(buffer);
+    extractedText = parsePdfBuffer(buffer);
   } catch {
     // extraction failed — still save the PDF but mark as failed
   }
