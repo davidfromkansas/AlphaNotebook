@@ -6,6 +6,7 @@ import { useEffect, useState, useRef } from "react";
 import Link from "next/link";
 import dynamic from "next/dynamic";
 import SourceChat, { type Citation } from "@/components/source-chat";
+import type { ChunkSpan } from "@/components/markdown-renderer";
 
 const MarkdownRenderer = dynamic(
   () => import("@/components/markdown-renderer"),
@@ -52,6 +53,15 @@ export default function SourceDetailPage() {
   const [collapsed, setCollapsed] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
   const [sheetOpen, setSheetOpen] = useState(false);
+  const [chunks, setChunks] = useState<ChunkSpan[]>([]);
+  const [activeChunkId, setActiveChunkId] = useState<string | null>(null);
+  const [activeRange, setActiveRange] = useState<{
+    key: string;
+    charStart: number;
+    charEnd: number;
+  } | null>(null);
+  const activeChunkTimerRef = useRef<number | null>(null);
+  const activeRangeTimerRef = useRef<number | null>(null);
   const hasFetched = useRef(false);
   const readerRef = useRef<HTMLDivElement>(null);
   const mobileReaderRef = useRef<HTMLDivElement>(null);
@@ -102,20 +112,91 @@ export default function SourceDetailPage() {
     }
   }, [isMobile, source?.status, source?.id]);
 
-  const handleCitationClick = (_citation: Citation) => {
-    // Until precise anchoring is wired up, surface the cited source by
-    // revealing the reader and scrolling it back to the top.
-    if (isMobile) {
-      setSheetOpen(false);
+  const flashChunk = (chunkId: string) => {
+    setActiveChunkId(chunkId);
+    if (activeChunkTimerRef.current !== null) {
+      window.clearTimeout(activeChunkTimerRef.current);
+    }
+    activeChunkTimerRef.current = window.setTimeout(() => {
+      setActiveChunkId(null);
+      activeChunkTimerRef.current = null;
+    }, 1800);
+  };
+
+  const scrollToChunk = (chunkId: string) => {
+    // Wait a tick so the reader pane is visible if it was collapsed.
+    requestAnimationFrame(() => {
+      const el = document.getElementById(`chunk-${chunkId}`);
+      if (el) {
+        el.scrollIntoView({ behavior: "smooth", block: "center" });
+        flashChunk(chunkId);
+      } else {
+        // Fallback: scroll reader to top if the anchor isn't rendered yet.
+        const reader = isMobile ? mobileReaderRef.current : readerRef.current;
+        reader?.scrollTo({ top: 0, behavior: "smooth" });
+      }
+    });
+  };
+
+  const flashRange = (range: {
+    key: string;
+    charStart: number;
+    charEnd: number;
+  }) => {
+    setActiveRange(range);
+    if (activeRangeTimerRef.current !== null) {
+      window.clearTimeout(activeRangeTimerRef.current);
+    }
+    activeRangeTimerRef.current = window.setTimeout(() => {
+      setActiveRange(null);
+      activeRangeTimerRef.current = null;
+    }, 2200);
+  };
+
+  const scrollToRange = (range: {
+    key: string;
+    charStart: number;
+    charEnd: number;
+  }) => {
+    flashRange(range);
+    // The DOM mounts the new range anchor on the next render — wait for it.
+    requestAnimationFrame(() => {
       requestAnimationFrame(() => {
-        mobileReaderRef.current?.scrollTo({ top: 0, behavior: "smooth" });
+        const el = document.getElementById(`range-${range.key}`);
+        if (el) {
+          el.scrollIntoView({ behavior: "smooth", block: "center" });
+        } else {
+          const reader = isMobile
+            ? mobileReaderRef.current
+            : readerRef.current;
+          reader?.scrollTo({ top: 0, behavior: "smooth" });
+        }
+      });
+    });
+  };
+
+  const handleCitationClick = (citation: Citation) => {
+    // Ensure we're on the extracted (markdown) view, not the PDF tab.
+    if (activeTab !== "extracted") setActiveTab("extracted");
+    if (isMobile) setSheetOpen(false);
+    else if (collapsed) toggleCollapsed();
+
+    // Prefer exact-line range scroll when the citation includes char offsets;
+    // fall back to chunk-level anchor otherwise.
+    if (
+      typeof citation.charStart === "number" &&
+      typeof citation.charEnd === "number" &&
+      citation.charEnd > citation.charStart
+    ) {
+      const key = `${citation.charStart}-${citation.charEnd}`;
+      scrollToRange({
+        key,
+        charStart: citation.charStart,
+        charEnd: citation.charEnd,
       });
       return;
     }
-    if (collapsed) toggleCollapsed();
-    requestAnimationFrame(() => {
-      readerRef.current?.scrollTo({ top: 0, behavior: "smooth" });
-    });
+    if (citation.anchor) scrollToChunk(citation.anchor);
   };
 
   useEffect(() => {
@@ -129,6 +210,11 @@ export default function SourceDetailPage() {
         .then((data) => setSource(data))
         .catch((err) => setError(err.message))
         .finally(() => setIsLoading(false));
+      // Fetch chunk spans for in-reader anchoring (separate, non-blocking).
+      fetch(`/api/sources/${params.id}/chunks`)
+        .then((res) => (res.ok ? res.json() : { chunks: [] }))
+        .then((data: { chunks: ChunkSpan[] }) => setChunks(data.chunks || []))
+        .catch(() => {});
     }
   }, [status, params.id]);
 
@@ -189,7 +275,12 @@ export default function SourceDetailPage() {
       />
     ) : source.content ? (
       <article className="prose prose-sm max-w-none p-5 sm:p-6">
-        <MarkdownRenderer content={source.content} />
+        <MarkdownRenderer
+          content={source.content}
+          chunks={chunks}
+          activeChunkId={activeChunkId}
+          activeRange={activeRange}
+        />
       </article>
     ) : (
       <div className="p-6 text-center text-foreground/60">
@@ -390,6 +481,7 @@ export default function SourceDetailPage() {
                 <span className="h-[5px] w-9 rounded-full bg-[#D1D5DB]" />
               </button>
               <SourceChat
+                sourceId={source.id}
                 sourceTitle={sourceTitle}
                 collapsed={false}
                 rootedInStrip
@@ -508,6 +600,7 @@ export default function SourceDetailPage() {
 
             {/* Ask AI chat pane */}
             <SourceChat
+              sourceId={source.id}
               sourceTitle={sourceTitle}
               collapsed={collapsed}
               onCitationClick={handleCitationClick}
