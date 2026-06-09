@@ -1,10 +1,12 @@
 generator client {
-  provider = "prisma-client"
-  output   = "../src/generated/prisma"
+  provider        = "prisma-client"
+  output          = "../src/generated/prisma"
+  previewFeatures = ["postgresqlExtensions"]
 }
 
 datasource db {
-  provider = "postgresql"
+  provider   = "postgresql"
+  extensions = [vector]
 }
 
 model User {
@@ -17,6 +19,7 @@ model User {
   accounts      Account[]
   sessions      Session[]
   collections   Collection[]
+  conversations Conversation[]
 }
 
 model Account {
@@ -64,20 +67,114 @@ model Collection {
 }
 
 model Source {
-  id           String           @id @default(cuid())
-  collectionId String
-  sourceType   SourceType       @default(URL)
-  url          String?
-  fileName     String?
-  pdfData      Bytes?
-  title        String?
-  author       String?
-  siteName     String?
-  tags         String[]
-  content      String?
-  status       SourceStatus     @default(PENDING)
-  createdAt    DateTime         @default(now())
-  collection   Collection       @relation(fields: [collectionId], references: [id], onDelete: Cascade)
+  id            String          @id @default(cuid())
+  collectionId  String
+  sourceType    SourceType      @default(URL)
+  url           String?
+  fileName      String?
+  pdfData       Bytes?
+  title         String?
+  author        String?
+  siteName      String?
+  tags          String[]
+  content       String?
+  publishedAt   DateTime?
+  status        SourceStatus    @default(PENDING)
+  indexStatus   IndexStatus     @default(PENDING)
+  createdAt     DateTime        @default(now())
+  collection    Collection      @relation(fields: [collectionId], references: [id], onDelete: Cascade)
+  chunks        SourceChunk[]
+  conversations Conversation[]
+}
+
+/// One indexed chunk of a source's markdown content.
+/// Embedding column is added via raw SQL migration (Prisma has no native vector type).
+model SourceChunk {
+  id          String                       @id @default(cuid())
+  sourceId    String
+  ord         Int
+  headingPath String?
+  text        String
+  charStart   Int
+  charEnd     Int
+  tokenCount  Int?
+  embedding   Unsupported("vector(1536)")?
+  textSearch  Unsupported("tsvector")?
+  createdAt   DateTime                     @default(now())
+  source      Source                       @relation(fields: [sourceId], references: [id], onDelete: Cascade)
+
+  @@unique([sourceId, ord])
+  @@index([sourceId])
+}
+
+model Conversation {
+  id        String    @id @default(cuid())
+  sourceId  String
+  userId    String
+  title     String?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  source    Source    @relation(fields: [sourceId], references: [id], onDelete: Cascade)
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  messages  Message[]
+
+  @@index([sourceId, userId])
+}
+
+model Message {
+  id             String       @id @default(cuid())
+  conversationId String
+  role           MessageRole
+  content        String
+  citations      Json?
+  createdAt      DateTime     @default(now())
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  @@index([conversationId])
+}
+
+/// Per-LLM-call telemetry. Written after each streamed chat completes.
+/// Used for cost/perf analysis and provider A/B comparisons.
+model LlmCall {
+  id                  String    @id @default(cuid())
+  userId              String?
+  sourceId            String?
+  conversationId      String?
+  messageId           String?
+  provider            String
+  model               String
+  /// Total tokens in the prompt (system + history + user).
+  inputTokens         Int?
+  /// Tokens served from cache (Gemini implicit/explicit caching).
+  cachedInputTokens   Int?
+  /// Generated reply tokens (excludes thinking).
+  outputTokens        Int?
+  /// Gemini "thinking" tokens (charged against output budget).
+  thinkingTokens      Int?
+  /// Wall-clock from request start to final token.
+  latencyMs           Int?
+  /// Time to first streamed token (responsiveness).
+  ttftMs              Int?
+  /// "completed" | "aborted" | "error"
+  status              String    @default("completed")
+  errorMessage        String?
+  createdAt           DateTime  @default(now())
+
+  @@index([createdAt])
+  @@index([sourceId])
+  @@index([userId])
+}
+
+enum IndexStatus {
+  PENDING
+  INDEXING
+  READY
+  FAILED
+}
+
+enum MessageRole {
+  USER
+  ASSISTANT
 }
 
 enum SourceType {

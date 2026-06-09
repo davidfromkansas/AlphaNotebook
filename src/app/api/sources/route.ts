@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { extractContent, parsePdfBuffer } from "@/lib/exa";
+import { indexSource } from "@/lib/indexing";
 
 const MAX_PDF_SIZE = 10 * 1024 * 1024; // 10 MB
 
@@ -65,6 +66,10 @@ async function handleUrlSource(request: Request, userId: string) {
           content: content.text,
           status: "READY",
         },
+      });
+      // Index for chat. Don't await — let it run in the background.
+      indexSource(source.id).catch((err) => {
+        console.error(`[indexSource] failed for ${source.id}:`, err);
       });
     })
     .catch(async () => {
@@ -153,6 +158,12 @@ async function handlePdfUpload(request: Request, userId: string) {
       status: extractedText ? "READY" : "FAILED",
     },
   });
+
+  if (extractedText) {
+    indexSource(source.id).catch((err) => {
+      console.error(`[indexSource] failed for ${source.id}:`, err);
+    });
+  }
 
   // Don't send pdfData back to the client
   // eslint-disable-next-line @typescript-eslint/no-unused-vars

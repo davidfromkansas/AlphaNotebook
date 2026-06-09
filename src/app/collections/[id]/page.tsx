@@ -6,6 +6,7 @@ import { useEffect, useState, useRef, useCallback } from "react";
 import Link from "next/link";
 import { AddSourceModal } from "@/components/add-source-modal";
 import { EditSourceTitleModal } from "@/components/edit-source-title-modal";
+import CollectionChat from "@/components/collection-chat";
 
 interface Source {
   id: string;
@@ -37,6 +38,8 @@ export default function CollectionDetailPage() {
   const [showAddSource, setShowAddSource] = useState(false);
   const [editingSource, setEditingSource] = useState<Source | null>(null);
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
+  const [selectedSourceIds, setSelectedSourceIds] = useState<Set<string>>(new Set());
+  const [showChat, setShowChat] = useState(true);
   const hasFetched = useRef(false);
 
   const handleDelete = useCallback(async (sourceId: string) => {
@@ -65,7 +68,12 @@ export default function CollectionDetailPage() {
           if (!res.ok) throw new Error("Not found");
           return res.json();
         })
-        .then((data) => setCollection(data))
+        .then((data) => {
+          setCollection(data);
+          // Select all ready sources by default
+          const readySources = data.sources.filter((s: Source) => s.status === "READY");
+          setSelectedSourceIds(new Set(readySources.map((s: Source) => s.id)));
+        })
         .catch((err) => setError(err.message))
         .finally(() => setIsLoading(false));
     }
@@ -100,38 +108,7 @@ export default function CollectionDetailPage() {
   }
 
   return (
-    <main className="flex flex-1 flex-col p-4 pb-20 sm:p-8 sm:pb-8">
-      {/* Header */}
-      <div className="mb-4 sm:mb-6">
-        <div className="flex items-start justify-between">
-          <div className="min-w-0 flex-1">
-            <Link
-              href="/library"
-              className="text-sm text-foreground/50 hover:text-brand"
-            >
-              <span className="sm:hidden">← {collection.name}</span>
-              <span className="hidden sm:inline">
-                ← Library / Collections
-              </span>
-            </Link>
-            <h1 className="mt-1 text-xl font-bold text-foreground sm:text-2xl">
-              {collection.name}
-            </h1>
-            {collection.description && (
-              <p className="mt-1 text-sm text-foreground/60">
-                {collection.description}
-              </p>
-            )}
-          </div>
-          <button
-            onClick={() => setShowAddSource(true)}
-            className="ml-4 hidden shrink-0 rounded-lg bg-brand px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-brand-dark sm:block"
-          >
-            Add source
-          </button>
-        </div>
-      </div>
-
+    <main className="flex h-[100dvh] min-h-0 flex-col overflow-hidden bg-white sm:px-8 sm:py-3">
       {collection.sources.length === 0 ? (
         <div className="flex flex-1 flex-col items-center justify-center rounded-xl border border-dashed border-border p-8 sm:p-12">
           <p className="text-lg font-medium text-foreground/70">
@@ -148,130 +125,147 @@ export default function CollectionDetailPage() {
           </button>
         </div>
       ) : (
-        <>
-          {/* Source count */}
-          <p className="mb-3 text-sm text-foreground/50">
-            {collection.sources.length} source
-            {collection.sources.length !== 1 ? "s" : ""}
-          </p>
+        <div className="flex min-h-0 flex-1 flex-col px-6 pb-4 lg:px-6 lg:pb-4">
+          {/* Sub-header: back button, title/description, Add Source */}
+          <div className="flex h-16 shrink-0 items-center gap-4 py-3">
+            <Link
+              href="/library"
+              className="inline-flex h-10 shrink-0 items-center gap-1.5 rounded-md border border-[#D1D5DB] bg-white px-3 text-[13px] font-medium text-[#111827] hover:bg-[#F9FAFB]"
+            >
+              <span className="text-[13px]">←</span>
+              <span>All Collections</span>
+            </Link>
+            <div className="flex flex-1 min-w-0 flex-col gap-0.5">
+              <h1 className="truncate text-[18px] font-semibold leading-[1.3] text-[#111827]">
+                {collection.name}
+              </h1>
+              {collection.description && (
+                <p className="truncate text-[13px] leading-[1.4] text-[#6B7280]">
+                  {collection.description}
+                </p>
+              )}
+            </div>
+            <button
+              onClick={() => setShowAddSource(true)}
+              className="inline-flex h-10 shrink-0 items-center justify-center rounded-md border border-[#D1D5DB] bg-white px-3 text-[13px] font-medium text-[#111827] hover:bg-[#F9FAFB]"
+            >
+              Add Source
+            </button>
+          </div>
 
-          {/* Desktop table */}
-          <div className="hidden overflow-hidden rounded-xl border border-border sm:block">
-            <table className="w-full text-left text-sm">
-              <thead className="border-b border-border bg-surface">
-                <tr>
-                  <th className="px-4 py-3 font-medium text-foreground/70">
-                    Title
-                  </th>
-                  <th className="px-4 py-3 font-medium text-foreground/70">
-                    Source
-                  </th>
-                  <th className="px-4 py-3 font-medium text-foreground/70">
-                    Status
-                  </th>
-                  <th className="px-4 py-3 font-medium text-foreground/70">
-                    Added
-                  </th>
-                  <th className="w-10 px-4 py-3" />
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border">
+          <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-lg border border-[#E5E7EB] bg-white lg:flex-row">
+            {/* Left column: Sources list */}
+            <div className="flex min-h-0 flex-1 flex-col lg:w-[440px] lg:flex-none lg:border-r lg:border-[#E5E7EB]">
+              {/* Header */}
+              <div className="flex h-10 shrink-0 items-center gap-2.5 border-b border-[#E5E7EB] bg-[#F9FAFB] px-4">
+                <div className="flex h-[18px] w-[18px] shrink-0 items-center justify-center">
+                  <input
+                    type="checkbox"
+                    checked={
+                      selectedSourceIds.size ===
+                      collection.sources.filter((s) => s.status === "READY").length
+                    }
+                    onChange={(e) => {
+                      if (e.target.checked) {
+                        const allReady = collection.sources
+                          .filter((s) => s.status === "READY")
+                          .map((s) => s.id);
+                        setSelectedSourceIds(new Set(allReady));
+                      } else {
+                        setSelectedSourceIds(new Set());
+                      }
+                    }}
+                    className="rounded border-border"
+                  />
+                </div>
+                <span className="text-[11px] uppercase tracking-wider font-semibold text-[#374151]">Sources</span>
+                <span className="flex-1 text-[11px] text-[#9CA3AF]">
+                  {selectedSourceIds.size} of {collection.sources.filter((s) => s.status === "READY").length} selected
+                </span>
+                <button className="text-[11px] font-medium text-[#147885] hover:underline">
+                  Sort: Recent
+                </button>
+              </div>
+
+              {/* Source rows */}
+              <div className="min-h-0 flex-1 overflow-y-auto">
                 {collection.sources.map((source) => (
-                  <tr key={source.id} className="hover:bg-surface/50">
-                    <td className="px-4 py-3">
+                  <div
+                    key={source.id}
+                    className="flex items-start gap-3 border-b border-[#F3F4F6] bg-white px-4 py-3.5"
+                  >
+                    <input
+                      type="checkbox"
+                      checked={selectedSourceIds.has(source.id)}
+                      disabled={source.status !== "READY"}
+                      onChange={(e) => {
+                        const newSelected = new Set(selectedSourceIds);
+                        if (e.target.checked) {
+                          newSelected.add(source.id);
+                        } else {
+                          newSelected.delete(source.id);
+                        }
+                        setSelectedSourceIds(newSelected);
+                      }}
+                      className="mt-0.5 h-[18px] w-[18px] shrink-0 rounded border border-brand bg-brand disabled:opacity-50"
+                    />
+                    <div className="min-w-0 flex-1 max-w-[360px] flex flex-col gap-1">
                       <Link
                         href={`/sources/${source.id}`}
-                        className="font-medium text-foreground hover:text-brand"
+                        className="block text-[13px] font-semibold leading-[18.2px] text-[#111827] hover:text-brand"
                       >
                         {source.title || "Untitled"}
                       </Link>
-                    </td>
-                    <td className="px-4 py-3 text-foreground/60">
-                      {source.sourceType === "PDF"
-                        ? source.fileName || "PDF"
-                        : source.siteName ||
-                          (source.url
-                            ? new URL(source.url).hostname
-                            : "—")}
-                    </td>
-                    <td className="px-4 py-3">
-                      <StatusBadge status={source.status} />
-                    </td>
-                    <td className="px-4 py-3 text-foreground/60">
-                      {new Date(source.createdAt).toLocaleDateString()}
-                    </td>
-                    <td className="px-4 py-3">
-                      <SourceMenu
-                        sourceId={source.id}
-                        isOpen={openMenuId === source.id}
-                        onToggle={() =>
-                          setOpenMenuId(
-                            openMenuId === source.id ? null : source.id
-                          )
-                        }
-                        onClose={() => setOpenMenuId(null)}
-                        onEdit={() => {
-                          setEditingSource(source);
-                          setOpenMenuId(null);
-                        }}
-                        onDelete={() => handleDelete(source.id)}
-                      />
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-
-          {/* Mobile card list */}
-          <div className="space-y-2 sm:hidden">
-            {collection.sources.map((source) => (
-              <div
-                key={source.id}
-                className="flex items-center justify-between rounded-xl border border-border bg-white p-4 transition-colors active:bg-surface/50"
-              >
-                <Link
-                  href={`/sources/${source.id}`}
-                  className="min-w-0 flex-1"
-                >
-                  <p className="font-medium text-foreground">
-                    {source.title || "Untitled"}
-                  </p>
-                  <p className="mt-1 text-xs text-foreground/50">
-                    {source.sourceType === "PDF"
-                      ? source.fileName || "PDF"
-                      : source.siteName ||
-                        (source.url
-                          ? new URL(source.url).hostname
-                          : "—")}
-                    {" · "}
-                    {new Date(source.createdAt).toLocaleDateString()}
-                  </p>
-                  <div className="mt-1.5">
-                    <StatusBadge status={source.status} />
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="text-[11px] leading-[14px] text-[#4B5563]">
+                          {source.author || source.siteName || (source.url ? new URL(source.url).hostname : "—")}
+                        </span>
+                        <span className="text-[11px] leading-[14px] text-[#9CA3AF]">·</span>
+                        <span className="text-[11px] leading-[14px] text-[#9CA3AF]">
+                          {new Date(source.createdAt).toLocaleDateString()}
+                        </span>
+                        <span className="text-[11px] leading-[14px] text-[#9CA3AF]">·</span>
+                        <span className="inline-flex items-center rounded border px-1.5 py-0.5 text-[10px] font-medium leading-[13px]">
+                          {source.sourceType === "PDF" ? "PDF" : "URL"}
+                        </span>
+                      </div>
+                    </div>
+                    <SourceMenu
+                      sourceId={source.id}
+                      isOpen={openMenuId === source.id}
+                      onToggle={() =>
+                        setOpenMenuId(
+                          openMenuId === source.id ? null : source.id
+                        )
+                      }
+                      onClose={() => setOpenMenuId(null)}
+                      onEdit={() => {
+                        setEditingSource(source);
+                        setOpenMenuId(null);
+                      }}
+                      onDelete={() => handleDelete(source.id)}
+                    />
                   </div>
-                </Link>
-                <div className="ml-3 shrink-0">
-                  <SourceMenu
-                    sourceId={source.id}
-                    isOpen={openMenuId === source.id}
-                    onToggle={() =>
-                      setOpenMenuId(
-                        openMenuId === source.id ? null : source.id
-                      )
-                    }
-                    onClose={() => setOpenMenuId(null)}
-                    onEdit={() => {
-                      setEditingSource(source);
-                      setOpenMenuId(null);
-                    }}
-                    onDelete={() => handleDelete(source.id)}
-                  />
-                </div>
+                ))}
               </div>
-            ))}
+            </div>
+
+            {/* Right column: Chat panel */}
+            <div className="hidden lg:flex lg:min-h-0 lg:flex-1 lg:min-w-0">
+              <div className="flex h-full w-full min-h-0 flex-col overflow-hidden bg-white">
+                <CollectionChat
+                  collectionId={collection.id}
+                  sourceIds={Array.from(selectedSourceIds)}
+                  totalSourceCount={collection.sources.filter((s) => s.status === "READY").length}
+                  onCitationClick={(citation: { sourceId: string }) => {
+                    // Navigate to source page with citation
+                    router.push(`/sources/${citation.sourceId}`);
+                  }}
+                />
+              </div>
+            </div>
           </div>
-        </>
+        </div>
       )}
 
       {/* Mobile sticky FAB */}
