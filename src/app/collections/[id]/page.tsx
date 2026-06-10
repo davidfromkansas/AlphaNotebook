@@ -57,6 +57,15 @@ export default function CollectionDetailPage() {
     setOpenMenuId(null);
   }, []);
 
+  const handleDeleteCollection = useCallback(async () => {
+    if (!collection) return;
+    if (!window.confirm("Are you sure you want to delete this collection? This cannot be undone.")) return;
+    const res = await fetch(`/api/collections/${collection.id}`, { method: "DELETE" });
+    if (res.ok) {
+      router.push("/library");
+    }
+  }, [collection, router]);
+
   useEffect(() => {
     if (status === "unauthenticated") {
       router.push("/login");
@@ -123,6 +132,10 @@ export default function CollectionDetailPage() {
                 setShowEditCollection(true);
                 setShowCollectionMenu(false);
               }}
+              onDelete={() => {
+                setShowCollectionMenu(false);
+                handleDeleteCollection();
+              }}
             />
           </div>
           <h1 className="text-lg font-semibold text-foreground">
@@ -177,6 +190,10 @@ export default function CollectionDetailPage() {
               onEdit={() => {
                 setShowEditCollection(true);
                 setShowCollectionMenu(false);
+              }}
+              onDelete={() => {
+                setShowCollectionMenu(false);
+                handleDeleteCollection();
               }}
             />
           </div>
@@ -491,11 +508,13 @@ function CollectionMenu({
   onToggle,
   onClose,
   onEdit,
+  onDelete,
 }: {
   isOpen: boolean;
   onToggle: () => void;
   onClose: () => void;
   onEdit: () => void;
+  onDelete: () => void;
 }) {
   const buttonRef = useRef<HTMLButtonElement>(null);
   const [position, setPosition] = useState<{ top: number; right: number }>({
@@ -544,6 +563,12 @@ function CollectionMenu({
               className="flex w-full items-center px-3 py-2 text-left text-sm text-foreground hover:bg-surface"
             >
               Edit Title / Description
+            </button>
+            <button
+              onClick={onDelete}
+              className="flex w-full items-center px-3 py-2 text-left text-sm text-red-600 hover:bg-red-50"
+            >
+              Delete Collection
             </button>
           </div>
         </>
