@@ -164,6 +164,12 @@ export default function CollectionDetailPage() {
                 </p>
               )}
             </div>
+            <button
+              onClick={() => setShowAddSource(true)}
+              className="inline-flex h-10 shrink-0 items-center justify-center rounded-md border border-[#D1D5DB] bg-white px-3 text-[13px] font-medium text-[#111827] hover:bg-[#F9FAFB]"
+            >
+              Add Source
+            </button>
             <CollectionMenu
               isOpen={showCollectionMenu}
               onToggle={() => setShowCollectionMenu(!showCollectionMenu)}
@@ -173,12 +179,6 @@ export default function CollectionDetailPage() {
                 setShowCollectionMenu(false);
               }}
             />
-            <button
-              onClick={() => setShowAddSource(true)}
-              className="inline-flex h-10 shrink-0 items-center justify-center rounded-md border border-[#D1D5DB] bg-white px-3 text-[13px] font-medium text-[#111827] hover:bg-[#F9FAFB]"
-            >
-              Add Source
-            </button>
           </div>
 
           <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-lg border border-[#E5E7EB] bg-white lg:flex-row">
