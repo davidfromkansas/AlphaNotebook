@@ -238,8 +238,8 @@ export default function CollectionChat({
 
   return (
     <div className="flex h-full min-h-0 flex-1 flex-col bg-white">
-      {/* Chat header */}
-      <div className="flex h-[68px] shrink-0 items-center justify-between gap-2.5 border-b border-[#E5E7EB] px-[18px] py-3.5">
+      {/* Chat header — hidden on mobile to save space */}
+      <div className="hidden h-[68px] shrink-0 items-center justify-between gap-2.5 border-b border-[#E5E7EB] px-[18px] py-3.5 lg:flex">
         <div className="flex items-center gap-2.5">
           <div className="flex h-[30px] w-[30px] shrink-0 items-center justify-center rounded-[6px] bg-brand">
             <SparkleIcon size={16} />
