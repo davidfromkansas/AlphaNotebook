@@ -40,7 +40,7 @@ export default function CollectionDetailPage() {
   const [editingSource, setEditingSource] = useState<Source | null>(null);
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
   const [selectedSourceIds, setSelectedSourceIds] = useState<Set<string>>(new Set());
-  const [showChat, setShowChat] = useState(true);
+  const [mobileTab, setMobileTab] = useState<"sources" | "chat">("sources");
   const [showEditCollection, setShowEditCollection] = useState(false);
   const [showCollectionMenu, setShowCollectionMenu] = useState(false);
   const hasFetched = useRef(false);
@@ -157,50 +157,66 @@ export default function CollectionDetailPage() {
           </button>
         </div>
       ) : (
-        <div className="flex min-h-0 flex-1 flex-col px-6 pb-4 lg:px-6 lg:pb-4">
+        <div className="flex min-h-0 flex-1 flex-col px-4 pb-4 sm:px-6 lg:px-6 lg:pb-4">
           {/* Sub-header: back button, title/description, Add Source */}
-          <div className="flex h-16 shrink-0 items-center gap-4 py-3">
-            <Link
-              href="/library"
-              className="inline-flex h-10 shrink-0 items-center gap-1.5 rounded-md border border-[#D1D5DB] bg-white px-3 text-[13px] font-medium text-[#111827] hover:bg-[#F9FAFB]"
-            >
-              <span className="text-[13px]">←</span>
-              <span>All Collections</span>
-            </Link>
-            <div className="flex flex-1 min-w-0 flex-col gap-0.5">
-              <h1 className="truncate text-[18px] font-semibold leading-[1.3] text-[#111827]">
+          <div className="shrink-0 py-3">
+            {/* Row 1: navigation + actions */}
+            <div className="flex h-10 items-center gap-4">
+              <Link
+                href="/library"
+                className="inline-flex h-10 shrink-0 items-center gap-1.5 rounded-md border border-[#D1D5DB] bg-white px-3 text-[13px] font-medium text-[#111827] hover:bg-[#F9FAFB]"
+              >
+                <span className="text-[13px]">←</span>
+                <span>All Collections</span>
+              </Link>
+              {/* Desktop: inline title/description */}
+              <div className="hidden flex-1 min-w-0 flex-col gap-0.5 lg:flex">
+                <h1 className="truncate text-[18px] font-semibold leading-[1.3] text-[#111827]">
+                  {collection.name}
+                </h1>
+                {collection.description && (
+                  <p className="truncate text-[13px] leading-[1.4] text-[#6B7280]">
+                    {collection.description}
+                  </p>
+                )}
+              </div>
+              <div className="flex-1 lg:hidden" />
+              <button
+                onClick={() => setShowAddSource(true)}
+                className="inline-flex h-10 shrink-0 items-center justify-center rounded-md border border-[#D1D5DB] bg-white px-3 text-[13px] font-medium text-[#111827] hover:bg-[#F9FAFB]"
+              >
+                Add Source
+              </button>
+              <CollectionMenu
+                isOpen={showCollectionMenu}
+                onToggle={() => setShowCollectionMenu(!showCollectionMenu)}
+                onClose={() => setShowCollectionMenu(false)}
+                onEdit={() => {
+                  setShowEditCollection(true);
+                  setShowCollectionMenu(false);
+                }}
+                onDelete={() => {
+                  setShowCollectionMenu(false);
+                  handleDeleteCollection();
+                }}
+              />
+            </div>
+            {/* Row 2: mobile-only title and description */}
+            <div className="mt-2 lg:hidden">
+              <h1 className="text-[18px] font-semibold leading-[1.3] text-[#111827]">
                 {collection.name}
               </h1>
               {collection.description && (
-                <p className="truncate text-[13px] leading-[1.4] text-[#6B7280]">
+                <p className="mt-0.5 text-[13px] leading-[1.4] text-[#6B7280]">
                   {collection.description}
                 </p>
               )}
             </div>
-            <button
-              onClick={() => setShowAddSource(true)}
-              className="inline-flex h-10 shrink-0 items-center justify-center rounded-md border border-[#D1D5DB] bg-white px-3 text-[13px] font-medium text-[#111827] hover:bg-[#F9FAFB]"
-            >
-              Add Source
-            </button>
-            <CollectionMenu
-              isOpen={showCollectionMenu}
-              onToggle={() => setShowCollectionMenu(!showCollectionMenu)}
-              onClose={() => setShowCollectionMenu(false)}
-              onEdit={() => {
-                setShowEditCollection(true);
-                setShowCollectionMenu(false);
-              }}
-              onDelete={() => {
-                setShowCollectionMenu(false);
-                handleDeleteCollection();
-              }}
-            />
           </div>
 
           <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-lg border border-[#E5E7EB] bg-white lg:flex-row">
-            {/* Left column: Sources list */}
-            <div className="flex min-h-0 flex-1 flex-col lg:w-[440px] lg:flex-none lg:border-r lg:border-[#E5E7EB]">
+            {/* Left column: Sources list (hidden on mobile when chat tab is active) */}
+            <div className={`flex min-h-0 flex-1 flex-col lg:w-[440px] lg:flex-none lg:border-r lg:border-[#E5E7EB] ${mobileTab === "chat" ? "hidden lg:flex" : ""}`}>
               {/* Header */}
               <div className="flex h-10 shrink-0 items-center gap-2.5 border-b border-[#E5E7EB] bg-[#F9FAFB] px-4">
                 <div className="flex h-[18px] w-[18px] shrink-0 items-center justify-center">
@@ -295,8 +311,8 @@ export default function CollectionDetailPage() {
               </div>
             </div>
 
-            {/* Right column: Chat panel */}
-            <div className="hidden lg:flex lg:min-h-0 lg:flex-1 lg:min-w-0">
+            {/* Right column: Chat panel (visible on mobile when chat tab is active) */}
+            <div className={`min-h-0 flex-1 min-w-0 ${mobileTab === "chat" ? "flex" : "hidden lg:flex"}`}>
               <div className="flex h-full w-full min-h-0 flex-col overflow-hidden bg-white">
                 <CollectionChat
                   collectionId={collection.id}
@@ -313,27 +329,34 @@ export default function CollectionDetailPage() {
         </div>
       )}
 
-      {/* Mobile sticky FAB */}
+      {/* Mobile bottom tab bar */}
       {collection.sources.length > 0 && (
-        <div className="fixed inset-x-0 bottom-0 border-t border-border bg-white p-4 sm:hidden">
+        <div className="flex shrink-0 border-t border-[#E5E7EB] bg-white lg:hidden">
           <button
-            onClick={() => setShowAddSource(true)}
-            className="flex w-full items-center justify-center gap-2 rounded-lg bg-brand px-4 py-3 text-sm font-medium text-white transition-colors hover:bg-brand-dark"
+            onClick={() => setMobileTab("sources")}
+            className={`flex flex-1 items-center justify-center gap-2 py-3 text-sm font-medium transition-colors ${
+              mobileTab === "sources"
+                ? "border-t-2 border-brand text-brand"
+                : "text-[#6B7280]"
+            }`}
           >
-            <svg
-              className="h-4 w-4"
-              fill="none"
-              viewBox="0 0 24 24"
-              strokeWidth={2}
-              stroke="currentColor"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                d="M12 4.5v15m7.5-7.5h-15"
-              />
+            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Z" />
             </svg>
-            Add Source
+            Sources
+          </button>
+          <button
+            onClick={() => setMobileTab("chat")}
+            className={`flex flex-1 items-center justify-center gap-2 py-3 text-sm font-medium transition-colors ${
+              mobileTab === "chat"
+                ? "border-t-2 border-brand text-brand"
+                : "text-[#6B7280]"
+            }`}
+          >
+            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M7.5 8.25h9m-9 3H12m-9.75 1.51c0 1.6 1.123 2.994 2.707 3.227 1.129.166 2.27.293 3.423.379.35.026.67.21.865.501L12 21l2.755-4.133a1.14 1.14 0 0 1 .865-.501 48.172 48.172 0 0 0 3.423-.379c1.584-.233 2.707-1.626 2.707-3.228V6.741c0-1.602-1.123-2.995-2.707-3.228A48.394 48.394 0 0 0 12 3c-2.392 0-4.744.175-7.043.513C3.373 3.746 2.25 5.14 2.25 6.741v6.018Z" />
+            </svg>
+            Chat
           </button>
         </div>
       )}
