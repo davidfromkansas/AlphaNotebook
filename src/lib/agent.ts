@@ -200,7 +200,16 @@ export async function* streamAgent(
     const titleMap = new Map(opts.allSources.map((s) => [s.sourceId, s.title]));
     const titleFor = (id: string) => titleMap.get(id) ?? id;
 
-    const ai = new GoogleGenAI({ apiKey: process.env.GOOGLE_AI_API_KEY });
+    const apiKey = process.env.GOOGLE_AI_API_KEY;
+    if (!apiKey) {
+      // Fail loudly with an actionable message instead of letting the SDK
+      // fall back to Application Default Credentials (which surfaces a
+      // confusing "Could not load the default credentials" error).
+      throw new Error(
+        "GOOGLE_AI_API_KEY is not set. Add it to your environment (and to Vercel Project Settings → Environment Variables for production)."
+      );
+    }
+    const ai = new GoogleGenAI({ apiKey });
 
     let finalAnswer = "";
     let finalCitations: AgentCitation[] = [];

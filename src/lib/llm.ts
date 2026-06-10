@@ -215,6 +215,20 @@ async function* streamOpenAI(args: {
   }
 }
 
+/**
+ * Non-streaming convenience wrapper: run a chat completion and return the full
+ * text. Buffers the streamed deltas internally.
+ */
+export async function completeChat(
+  opts: Omit<StreamChatOptions, "onUsage">
+): Promise<string> {
+  let out = "";
+  for await (const delta of streamChat(opts)) {
+    out += delta;
+  }
+  return out;
+}
+
 /** Resolve the currently-configured provider + model for diagnostics. */
 export function describeLLM(): { provider: LLMProvider; model: string } {
   const provider = resolveProvider();

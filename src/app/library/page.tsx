@@ -5,6 +5,18 @@ import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { useEffect, useState, useRef } from "react";
 import { CreateCollectionModal } from "@/components/create-collection-modal";
+import { LearnComposer } from "@/components/learn-composer";
+import {
+  SourceSuggestionsModal,
+  type SuggestedSource,
+} from "@/components/source-suggestions-modal";
+
+interface SearchResponse {
+  query: string;
+  suggestedTitle: string;
+  suggestedDescription: string;
+  results: SuggestedSource[];
+}
 
 interface Collection {
   id: string;
@@ -16,11 +28,35 @@ interface Collection {
 }
 
 export default function LibraryPage() {
-  const { data: session, status } = useSession();
+  const { status } = useSession();
   const router = useRouter();
   const [collections, setCollections] = useState<Collection[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
+  const [isSearching, setIsSearching] = useState(false);
+  const [searchResult, setSearchResult] = useState<SearchResponse | null>(null);
+  const [searchError, setSearchError] = useState<string | null>(null);
+
+  const handleLearnSubmit = async (query: string) => {
+    setIsSearching(true);
+    setSearchError(null);
+    try {
+      const res = await fetch("/api/search", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ query }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error || "Search failed");
+      }
+      setSearchResult(await res.json());
+    } catch (err) {
+      setSearchError(err instanceof Error ? err.message : "Search failed");
+    } finally {
+      setIsSearching(false);
+    }
+  };
 
   useEffect(() => {
     if (status === "unauthenticated") {
@@ -61,40 +97,25 @@ export default function LibraryPage() {
   }
 
   return (
-    <main className="flex flex-1 flex-col p-4 pb-20 sm:p-8 sm:pb-8">
-      {/* Header */}
-      <div className="mb-6 flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-brand text-sm font-bold text-white sm:hidden">
-            A
-          </div>
-          <div>
-            <p className="hidden text-sm text-foreground/50 sm:block">
-              ← Library / Collections
-            </p>
-            <h1 className="text-xl font-bold text-foreground sm:text-2xl">
-              Library
-            </h1>
-          </div>
+    <main className="flex flex-1 flex-col">
+      {/* Page content */}
+      <div className="flex flex-1 flex-col p-4 pb-20 sm:p-8 sm:pb-8">
+      {/* Logo + prompt composer */}
+      <div className="mx-auto mb-8 mt-[25vh] w-full sm:w-1/2">
+        <div className="mb-[26px] flex justify-center">
+          <Image
+            src="/alpha-notebook-logo.png"
+            alt="Alpha Notebook"
+            width={988}
+            height={148}
+            priority
+            className="h-10 w-auto sm:h-12"
+          />
         </div>
-        <div className="flex items-center gap-3">
-          <span className="hidden text-sm text-foreground/60 sm:inline">
-            {session?.user?.name}
-          </span>
-          {session?.user?.image ? (
-            <Image
-              src={session.user.image}
-              alt=""
-              width={32}
-              height={32}
-              className="h-8 w-8 rounded-full"
-            />
-          ) : (
-            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-brand text-xs font-medium text-white">
-              {session?.user?.name?.charAt(0) || "?"}
-            </div>
-          )}
-        </div>
+        <LearnComposer onSubmit={handleLearnSubmit} isLoading={isSearching} />
+        {searchError && (
+          <p className="mt-2 text-center text-sm text-red-600">{searchError}</p>
+        )}
       </div>
 
       {collections.length === 0 ? (
@@ -124,7 +145,7 @@ export default function LibraryPage() {
               onClick={() => setShowModal(true)}
               className="hidden rounded-lg bg-brand px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-brand-dark sm:block"
             >
-              New collection
+              + Create Collection
             </button>
           </div>
 
@@ -202,6 +223,17 @@ export default function LibraryPage() {
           onCreated={handleCreated}
         />
       )}
+
+      {searchResult && (
+        <SourceSuggestionsModal
+          query={searchResult.query}
+          suggestedTitle={searchResult.suggestedTitle}
+          suggestedDescription={searchResult.suggestedDescription}
+          results={searchResult.results}
+          onClose={() => setSearchResult(null)}
+        />
+      )}
+      </div>
     </main>
   );
 }

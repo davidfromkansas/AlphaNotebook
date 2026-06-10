@@ -8,6 +8,54 @@ export interface ExaContent {
   url: string;
 }
 
+export interface ExaSearchResult {
+  title: string | null;
+  url: string;
+  author: string | null;
+  publishedDate: string | null;
+  summary: string | null;
+  favicon: string | null;
+}
+
+/**
+ * Search the web for links related to a natural-language query, returning a
+ * fixed number of results with a short AI summary for each. Used to suggest
+ * sources when creating a collection from a prompt.
+ */
+export async function searchLinks(
+  query: string,
+  numResults = 15
+): Promise<ExaSearchResult[]> {
+  const exa = getExaClient();
+  const res = await exa.search(query, {
+    numResults,
+    type: "auto",
+    contents: { summary: true },
+  });
+
+  return res.results.map((r) => {
+    const rawSummary =
+      typeof (r as { summary?: string }).summary === "string"
+        ? (r as { summary?: string }).summary ?? null
+        : null;
+    const summary = rawSummary
+      ? rawSummary
+          .trim()
+          .replace(/^summary\s*:\s*/i, "")
+          .trim()
+          .slice(0, 200)
+      : null;
+    return {
+      title: r.title ?? null,
+      url: r.url,
+      author: r.author ?? null,
+      publishedDate: r.publishedDate ?? null,
+      summary: summary || null,
+      favicon: (r as { favicon?: string }).favicon ?? null,
+    };
+  });
+}
+
 function getExaClient() {
   const apiKey = process.env.EXA_API_KEY;
   if (!apiKey) {

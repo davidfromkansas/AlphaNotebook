@@ -24,6 +24,19 @@ export async function GET() {
     : "NOT SET (ok for Vercel)";
   checks.VERCEL = process.env.VERCEL ? "SET" : "MISSING";
 
+  // Chat + content pipeline
+  checks.GOOGLE_AI_API_KEY = process.env.GOOGLE_AI_API_KEY ? "SET" : "MISSING";
+  checks.EXA_API_KEY = process.env.EXA_API_KEY ? "SET" : "MISSING";
+  checks.LLM_PROVIDER = process.env.LLM_PROVIDER ?? "gemini (default)";
+  checks.OPENAI_API_KEY = process.env.OPENAI_API_KEY ? "SET" : "NOT SET (only needed for openai)";
+
+  // Vercel Sandbox auth (used by collection chat's persistent filesystem)
+  checks.SANDBOX_AUTH = process.env.VERCEL_OIDC_TOKEN
+    ? "OIDC token present"
+    : process.env.VERCEL_TOKEN
+      ? "VERCEL_TOKEN present"
+      : "MISSING (need VERCEL_OIDC_TOKEN or VERCEL_TOKEN)";
+
   // Check DB connection
   try {
     const count = await prisma.user.count();
