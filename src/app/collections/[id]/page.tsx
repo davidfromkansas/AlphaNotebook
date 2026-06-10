@@ -201,17 +201,19 @@ export default function CollectionDetailPage() {
                 }}
               />
             </div>
-            {/* Row 2: mobile-only title and description */}
-            <div className="mt-2 lg:hidden">
-              <h1 className="text-[18px] font-semibold leading-[1.3] text-[#111827]">
-                {collection.name}
-              </h1>
-              {collection.description && (
-                <p className="mt-0.5 text-[13px] leading-[1.4] text-[#6B7280]">
-                  {collection.description}
-                </p>
-              )}
-            </div>
+            {/* Row 2: mobile-only title and description (hidden when chat tab is active) */}
+            {mobileTab !== "chat" && (
+              <div className="mt-2 lg:hidden">
+                <h1 className="text-[18px] font-semibold leading-[1.3] text-[#111827]">
+                  {collection.name}
+                </h1>
+                {collection.description && (
+                  <p className="mt-0.5 text-[13px] leading-[1.4] text-[#6B7280]">
+                    {collection.description}
+                  </p>
+                )}
+              </div>
+            )}
           </div>
 
           <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-lg border border-[#E5E7EB] bg-white lg:flex-row">
