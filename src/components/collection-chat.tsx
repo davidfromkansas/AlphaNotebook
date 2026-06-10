@@ -269,7 +269,7 @@ export default function CollectionChat({
 
       {/* Thread */}
       <div ref={threadRef} className="min-h-0 flex-1 overflow-y-auto">
-        <div className="flex flex-col gap-5 px-5 py-6">
+        <div className="flex flex-col gap-5 px-3 py-4 sm:px-5 sm:py-6">
           {!hasConversation ? (
             <EmptyState canSend={canSend} onPick={(p) => sendMessage(p)} />
           ) : (
@@ -342,9 +342,7 @@ export default function CollectionChat({
             </button>
           )}
         </div>
-        <p className="flex justify-center flex-wrap text-[11px] leading-[14px] text-[#9CA3AF]">
-          AI can make mistakes. Answers cite the selected sources only.
-        </p>
+
       </div>
     </div>
   );
@@ -400,7 +398,7 @@ function EmptyState({
 function UserBubble({ content }: { content: string }) {
   return (
     <div className="flex justify-end">
-      <div className="max-w-[70%] rounded-[14px] rounded-br-[4px] bg-brand px-4 py-2.5 text-sm leading-5 text-white">
+      <div className="max-w-full sm:max-w-[70%] rounded-[14px] rounded-br-[4px] bg-brand px-4 py-2.5 text-sm leading-5 text-white">
         {content}
       </div>
     </div>
@@ -415,7 +413,7 @@ function AssistantBubble({
   onCitationClick?: (citation: AgentCitation) => void;
 }) {
   return (
-    <div className="flex max-w-[85%] gap-2.5">
+    <div className="flex max-w-full sm:max-w-[85%] gap-2.5">
       <div className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-[#E7F1F2]">
         <SparkleIcon size={13} color="#147885" />
       </div>

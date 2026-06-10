@@ -216,7 +216,7 @@ export default function CollectionDetailPage() {
             )}
           </div>
 
-          <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-lg border border-[#E5E7EB] bg-white lg:flex-row">
+          <div className="flex min-h-0 flex-1 flex-col overflow-hidden bg-white lg:rounded-lg lg:border lg:border-[#E5E7EB] lg:flex-row">
             {/* Left column: Sources list (hidden on mobile when chat tab is active) */}
             <div className={`flex min-h-0 flex-1 flex-col lg:w-[440px] lg:flex-none lg:border-r lg:border-[#E5E7EB] ${mobileTab === "chat" ? "hidden lg:flex" : ""}`}>
               {/* Header */}
