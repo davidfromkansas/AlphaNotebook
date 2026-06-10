@@ -6,6 +6,7 @@ import { useEffect, useState, useRef, useCallback } from "react";
 import Link from "next/link";
 import { AddSourceModal } from "@/components/add-source-modal";
 import { EditSourceTitleModal } from "@/components/edit-source-title-modal";
+import { EditCollectionModal } from "@/components/edit-collection-modal";
 import CollectionChat from "@/components/collection-chat";
 
 interface Source {
@@ -40,6 +41,8 @@ export default function CollectionDetailPage() {
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
   const [selectedSourceIds, setSelectedSourceIds] = useState<Set<string>>(new Set());
   const [showChat, setShowChat] = useState(true);
+  const [showEditCollection, setShowEditCollection] = useState(false);
+  const [showCollectionMenu, setShowCollectionMenu] = useState(false);
   const hasFetched = useRef(false);
 
   const handleDelete = useCallback(async (sourceId: string) => {
@@ -110,12 +113,28 @@ export default function CollectionDetailPage() {
   return (
     <main className="flex h-[100dvh] min-h-0 flex-col overflow-hidden bg-white sm:px-8 sm:py-3">
       {collection.sources.length === 0 ? (
-        <div className="flex flex-1 flex-col items-center justify-center rounded-xl border border-dashed border-border p-8 sm:p-12">
-          <p className="text-lg font-medium text-foreground/70">
-            No sources yet
-          </p>
-          <p className="mt-1 text-center text-sm text-foreground/50">
-            Add a URL to extract and save content from the web.
+        <div className="relative flex flex-1 flex-col items-center justify-center rounded-xl border border-dashed border-border p-8 sm:p-12">
+          <div className="absolute right-4 top-4">
+            <CollectionMenu
+              isOpen={showCollectionMenu}
+              onToggle={() => setShowCollectionMenu(!showCollectionMenu)}
+              onClose={() => setShowCollectionMenu(false)}
+              onEdit={() => {
+                setShowEditCollection(true);
+                setShowCollectionMenu(false);
+              }}
+            />
+          </div>
+          <h1 className="text-lg font-semibold text-foreground">
+            {collection.name}
+          </h1>
+          {collection.description && (
+            <p className="mt-1 text-center text-sm text-foreground/50">
+              {collection.description}
+            </p>
+          )}
+          <p className="mt-3 text-sm text-foreground/50">
+            No sources yet — add a URL to extract and save content from the web.
           </p>
           <button
             onClick={() => setShowAddSource(true)}
@@ -145,6 +164,15 @@ export default function CollectionDetailPage() {
                 </p>
               )}
             </div>
+            <CollectionMenu
+              isOpen={showCollectionMenu}
+              onToggle={() => setShowCollectionMenu(!showCollectionMenu)}
+              onClose={() => setShowCollectionMenu(false)}
+              onEdit={() => {
+                setShowEditCollection(true);
+                setShowCollectionMenu(false);
+              }}
+            />
             <button
               onClick={() => setShowAddSource(true)}
               className="inline-flex h-10 shrink-0 items-center justify-center rounded-md border border-[#D1D5DB] bg-white px-3 text-[13px] font-medium text-[#111827] hover:bg-[#F9FAFB]"
@@ -342,6 +370,23 @@ export default function CollectionDetailPage() {
           }}
         />
       )}
+
+      {showEditCollection && (
+        <EditCollectionModal
+          collectionId={collection.id}
+          currentName={collection.name}
+          currentDescription={collection.description || ""}
+          onClose={() => setShowEditCollection(false)}
+          onSaved={(newName, newDescription) => {
+            setCollection((prev) =>
+              prev
+                ? { ...prev, name: newName, description: newDescription }
+                : prev
+            );
+            setShowEditCollection(false);
+          }}
+        />
+      )}
     </main>
   );
 }
@@ -433,6 +478,72 @@ function SourceMenu({
               className="flex w-full items-center px-3 py-2 text-left text-sm text-red-600 hover:bg-red-50"
             >
               Delete Source
+            </button>
+          </div>
+        </>
+      )}
+    </>
+  );
+}
+
+function CollectionMenu({
+  isOpen,
+  onToggle,
+  onClose,
+  onEdit,
+}: {
+  isOpen: boolean;
+  onToggle: () => void;
+  onClose: () => void;
+  onEdit: () => void;
+}) {
+  const buttonRef = useRef<HTMLButtonElement>(null);
+  const [position, setPosition] = useState<{ top: number; right: number }>({
+    top: 0,
+    right: 0,
+  });
+
+  useEffect(() => {
+    if (isOpen && buttonRef.current) {
+      const rect = buttonRef.current.getBoundingClientRect();
+      setPosition({
+        top: rect.bottom + 4,
+        right: window.innerWidth - rect.right,
+      });
+    }
+  }, [isOpen]);
+
+  return (
+    <>
+      <button
+        ref={buttonRef}
+        onClick={onToggle}
+        className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-md border border-[#D1D5DB] bg-white text-[#6B7280] hover:bg-[#F9FAFB] hover:text-[#111827]"
+        aria-label="Collection actions"
+      >
+        <svg
+          className="h-4 w-4"
+          fill="currentColor"
+          viewBox="0 0 16 16"
+        >
+          <circle cx="8" cy="3" r="1.5" />
+          <circle cx="8" cy="8" r="1.5" />
+          <circle cx="8" cy="13" r="1.5" />
+        </svg>
+      </button>
+
+      {isOpen && (
+        <>
+          <div className="fixed inset-0 z-40" onClick={onClose} />
+          <div
+            className="fixed z-50 w-52 rounded-lg border border-border bg-white py-1 shadow-lg"
+            style={{ top: position.top, right: position.right }}
+          >
+            <button
+              onClick={onEdit}
+              className="flex w-full items-center px-3 py-2 text-left text-sm text-foreground hover:bg-surface"
+            >
+              Edit Title / Description
             </button>
           </div>
         </>
