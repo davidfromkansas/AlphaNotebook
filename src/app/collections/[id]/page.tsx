@@ -7,6 +7,7 @@ import Link from "next/link";
 import { AddSourceModal } from "@/components/add-source-modal";
 import { EditSourceTitleModal } from "@/components/edit-source-title-modal";
 import { EditCollectionModal } from "@/components/edit-collection-modal";
+import { SourceDiscoveryModal } from "@/components/source-discovery-modal";
 import CollectionChat from "@/components/collection-chat";
 
 interface Source {
@@ -43,6 +44,7 @@ export default function CollectionDetailPage() {
   const [mobileTab, setMobileTab] = useState<"sources" | "chat">("sources");
   const [showEditCollection, setShowEditCollection] = useState(false);
   const [showCollectionMenu, setShowCollectionMenu] = useState(false);
+  const [showSourceDiscovery, setShowSourceDiscovery] = useState(false);
   const hasFetched = useRef(false);
 
   const handleDelete = useCallback(async (sourceId: string) => {
@@ -147,14 +149,22 @@ export default function CollectionDetailPage() {
             </p>
           )}
           <p className="mt-3 text-sm text-foreground/50">
-            No sources yet — add a URL to extract and save content from the web.
+            No sources yet — search for sources or add a URL.
           </p>
-          <button
-            onClick={() => setShowAddSource(true)}
-            className="mt-4 rounded-lg bg-brand px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-brand-dark"
-          >
-            Add source
-          </button>
+          <div className="mt-4 flex gap-2">
+            <button
+              onClick={() => setShowSourceDiscovery(true)}
+              className="rounded-lg bg-brand px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-brand-dark"
+            >
+              Find sources
+            </button>
+            <button
+              onClick={() => setShowAddSource(true)}
+              className="rounded-lg border border-border px-4 py-2 text-sm font-medium text-foreground/70 transition-colors hover:bg-surface"
+            >
+              Add URL
+            </button>
+          </div>
         </div>
       ) : (
         <div className="flex min-h-0 flex-1 flex-col px-4 pb-4 sm:px-6 lg:px-6 lg:pb-4">
@@ -181,6 +191,15 @@ export default function CollectionDetailPage() {
                 )}
               </div>
               <div className="flex-1 lg:hidden" />
+              <button
+                onClick={() => setShowSourceDiscovery(true)}
+                className="inline-flex h-10 shrink-0 items-center gap-1.5 rounded-md border border-[#D1D5DB] bg-white px-3 text-[13px] font-medium text-[#111827] hover:bg-[#F9FAFB]"
+              >
+                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z" />
+                </svg>
+                Find Sources
+              </button>
               <button
                 onClick={() => setShowAddSource(true)}
                 className="inline-flex h-10 shrink-0 items-center justify-center rounded-md border border-[#D1D5DB] bg-white px-3 text-[13px] font-medium text-[#111827] hover:bg-[#F9FAFB]"
@@ -364,6 +383,40 @@ export default function CollectionDetailPage() {
             Chat
           </button>
         </div>
+      )}
+
+      {showSourceDiscovery && (
+        <SourceDiscoveryModal
+          collectionId={collection.id}
+          existingUrls={
+            new Set(
+              collection.sources
+                .map((s) => s.url)
+                .filter((url): url is string => url !== null)
+            )
+          }
+          onClose={() => setShowSourceDiscovery(false)}
+          onSourcesAdded={(sources) => {
+            setCollection((prev) =>
+              prev
+                ? {
+                    ...prev,
+                    sources: [
+                      ...sources.map((s) => ({
+                        ...s,
+                        author: null,
+                        siteName: null,
+                        sourceType: s.sourceType || ("URL" as const),
+                        fileName: s.fileName || null,
+                      })),
+                      ...prev.sources,
+                    ],
+                  }
+                : prev
+            );
+            setShowSourceDiscovery(false);
+          }}
+        />
       )}
 
       {showAddSource && (

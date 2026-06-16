@@ -73,7 +73,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  let body: { query?: unknown };
+  let body: { query?: unknown; numResults?: unknown; skipMeta?: unknown };
   try {
     body = await request.json();
   } catch {
@@ -85,15 +85,32 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Query is required" }, { status: 400 });
   }
 
+  const numResults =
+    typeof body.numResults === "number" &&
+    body.numResults >= 1 &&
+    body.numResults <= 30
+      ? body.numResults
+      : 15;
+  const skipMeta = body.skipMeta === true;
+
   let results: ExaSearchResult[];
   try {
-    results = await searchLinks(query, 15);
+    results = await searchLinks(query, numResults);
   } catch (err) {
     console.error("[search] Exa search failed:", err);
     return NextResponse.json(
       { error: "Search failed. Please try again." },
       { status: 502 }
     );
+  }
+
+  if (skipMeta) {
+    return NextResponse.json({
+      query,
+      suggestedTitle: "",
+      suggestedDescription: "",
+      results,
+    });
   }
 
   const meta = await suggestMeta(query, results);
