@@ -2,11 +2,12 @@
 
 import { useSession } from "next-auth/react";
 import { useRouter, useParams } from "next/navigation";
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, useCallback } from "react";
 import Link from "next/link";
 import dynamic from "next/dynamic";
 import SourceChat, { type Citation } from "@/components/source-chat";
 import type { ChunkSpan } from "@/components/markdown-renderer";
+import { usePollPendingSources } from "@/hooks/use-poll-pending-sources";
 
 const MarkdownRenderer = dynamic(
   () => import("@/components/markdown-renderer"),
@@ -68,6 +69,31 @@ export default function SourceDetailPage() {
   const autoOpenedRef = useRef<string | null>(null);
 
   const sourceId = params.id as string;
+
+  const pollSources = source ? [{ id: source.id, status: source.status }] : [];
+  usePollPendingSources(
+    pollSources,
+    useCallback((updated) => {
+      setSource((prev) => {
+        if (!prev) return prev;
+        return {
+          ...prev,
+          title: updated.title ?? prev.title,
+          author: updated.author ?? prev.author,
+          siteName: updated.siteName ?? prev.siteName,
+          status: updated.status,
+          content: updated.content ?? prev.content,
+        };
+      });
+      // Re-fetch chunks once source is ready
+      if (updated.status === "READY") {
+        fetch(`/api/sources/${sourceId}/chunks`)
+          .then((res) => (res.ok ? res.json() : { chunks: [] }))
+          .then((data: { chunks: ChunkSpan[] }) => setChunks(data.chunks || []))
+          .catch(() => {});
+      }
+    }, [sourceId]),
+  );
 
   // Track the mobile breakpoint so we can swap to the bottom-sheet layout.
   useEffect(() => {
@@ -364,7 +390,7 @@ export default function SourceDetailPage() {
           <p className="mt-1 text-sm text-yellow-600">
             {isPdf
               ? "Extracting text from your PDF. This may take a moment."
-              : "Exa is crawling and extracting the page content. Refresh in a moment."}
+              : "Extracting page content. This will update automatically."}
           </p>
         </div>
       )}
