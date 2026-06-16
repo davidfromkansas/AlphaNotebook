@@ -9,6 +9,7 @@ import { EditSourceTitleModal } from "@/components/edit-source-title-modal";
 import { EditCollectionModal } from "@/components/edit-collection-modal";
 import { SourceDiscoveryModal } from "@/components/source-discovery-modal";
 import CollectionChat from "@/components/collection-chat";
+import { usePollPendingSources } from "@/hooks/use-poll-pending-sources";
 
 interface Source {
   id: string;
@@ -46,6 +47,32 @@ export default function CollectionDetailPage() {
   const [showCollectionMenu, setShowCollectionMenu] = useState(false);
   const [showSourceDiscovery, setShowSourceDiscovery] = useState(false);
   const hasFetched = useRef(false);
+
+  usePollPendingSources(
+    collection?.sources ?? [],
+    useCallback((updated) => {
+      setCollection((prev) => {
+        if (!prev) return prev;
+        return {
+          ...prev,
+          sources: prev.sources.map((s) =>
+            s.id === updated.id
+              ? {
+                  ...s,
+                  title: updated.title ?? s.title,
+                  author: updated.author ?? s.author,
+                  siteName: updated.siteName ?? s.siteName,
+                  status: updated.status,
+                }
+              : s,
+          ),
+        };
+      });
+      if (updated.status === "READY") {
+        setSelectedSourceIds((prev) => new Set([...prev, updated.id]));
+      }
+    }, []),
+  );
 
   const handleDelete = useCallback(async (sourceId: string) => {
     const res = await fetch(`/api/sources/${sourceId}`, { method: "DELETE" });
@@ -299,10 +326,29 @@ export default function CollectionDetailPage() {
                         {source.title || "Untitled"}
                       </Link>
                       <div className="flex flex-wrap items-center gap-2">
-                        <span className="text-[11px] leading-[14px] text-[#4B5563]">
-                          {source.author || source.siteName || (source.url ? new URL(source.url).hostname : "—")}
-                        </span>
-                        <span className="text-[11px] leading-[14px] text-[#9CA3AF]">·</span>
+                        {source.status === "PENDING" ? (
+                          <span className="inline-flex items-center gap-1 text-[11px] leading-[14px] text-[#6B7280]">
+                            <svg className="h-3 w-3 animate-spin" viewBox="0 0 24 24" fill="none">
+                              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                            </svg>
+                            Extracting…
+                          </span>
+                        ) : source.status === "FAILED" ? (
+                          <span className="inline-flex items-center gap-1 text-[11px] leading-[14px] text-red-600">
+                            <svg className="h-3 w-3" viewBox="0 0 20 20" fill="currentColor">
+                              <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                            </svg>
+                            Extraction failed
+                          </span>
+                        ) : (
+                          <>
+                            <span className="text-[11px] leading-[14px] text-[#4B5563]">
+                              {source.author || source.siteName || (source.url ? new URL(source.url).hostname : "—")}
+                            </span>
+                            <span className="text-[11px] leading-[14px] text-[#9CA3AF]">·</span>
+                          </>
+                        )}
                         <span className="text-[11px] leading-[14px] text-[#9CA3AF]">
                           {new Date(source.createdAt).toLocaleDateString()}
                         </span>
