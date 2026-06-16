@@ -1,8 +1,10 @@
-import { NextResponse } from "next/server";
+import { after, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { extractContent, parsePdfBuffer } from "@/lib/exa";
 import { indexSource } from "@/lib/indexing";
+
+export const maxDuration = 60;
 
 const MAX_PDF_SIZE = 10 * 1024 * 1024; // 10 MB
 
@@ -56,8 +58,9 @@ async function handleUrlSource(request: Request, userId: string) {
     },
   });
 
-  extractContent(url)
-    .then(async (content) => {
+  after(async () => {
+    try {
+      const content = await extractContent(url);
       await prisma.source.update({
         where: { id: source.id },
         data: {
@@ -67,17 +70,15 @@ async function handleUrlSource(request: Request, userId: string) {
           status: "READY",
         },
       });
-      // Index for chat. Don't await — let it run in the background.
-      indexSource(source.id).catch((err) => {
-        console.error(`[indexSource] failed for ${source.id}:`, err);
-      });
-    })
-    .catch(async () => {
+      await indexSource(source.id);
+    } catch (err) {
+      console.error(`[extractContent] failed for ${source.id}:`, err);
       await prisma.source.update({
         where: { id: source.id },
         data: { status: "FAILED" },
       });
-    });
+    }
+  });
 
   return NextResponse.json(source, { status: 201 });
 }
