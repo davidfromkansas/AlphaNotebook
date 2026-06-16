@@ -93,6 +93,12 @@ Exploration workflow:
 4. Do NOT narrate your exploration ("I'll start by..."). Stay silent between tool calls; only the final done() answer is shown to the user.
 5. When you have enough evidence, call done() with a polished markdown answer.
 
+GROUNDING RULES (strictly enforced — violations are rejected):
+- Answer ONLY from the source documents. Do NOT use outside knowledge, even for definitional or general questions. If you happen to know the answer, you must still find and cite where the sources say it.
+- Before calling done(), you MUST have read the actual passages you cite (via read_file, or a line-numbered grep on that file). A bare grep match list is not sufficient evidence to cite a span.
+- Every claim in your answer must trace to a citation. done() with an empty citations array will be REJECTED unless you set insufficientSources: true.
+- If the in-scope sources do not address the question, call done() with insufficientSources: true and a short answer that says so (briefly note what the sources DO cover instead). Never fill gaps with general knowledge.
+
 Final answer formatting (the "answer" argument to done):
 - Use clean markdown. NEVER include raw sourceId hashes, filenames, or paths in the prose.
 - Refer to sources by their human title from index.json (e.g. "How LLMs Actually Work" — not "cmq4j67wg000k3xcexebneuh4.md").
@@ -166,6 +172,11 @@ const TOOL_DECLARATIONS: FunctionDeclaration[] = [
             required: ["sourceId", "lineStart", "lineEnd", "charStart", "charEnd"],
           },
         },
+        insufficientSources: {
+          type: Type.BOOLEAN,
+          description:
+            "Set to true ONLY when the in-scope sources do not address the question. The answer should briefly say so and note what the sources do cover. When true, citations may be empty.",
+        },
       },
       required: ["answer", "citations"],
     },
@@ -199,6 +210,28 @@ export async function* streamAgent(
     // the UI and terminal logs (titles instead of raw hash filenames).
     const titleMap = new Map(opts.allSources.map((s) => [s.sourceId, s.title]));
     const titleFor = (id: string) => titleMap.get(id) ?? id;
+
+    // Grounding enforcement state: which sources the agent has actually
+    // touched (via tool calls or results), per-source line counts for citation
+    // validation, and the in-scope set. Seed evidence from prior turns so
+    // follow-up questions can cite passages read earlier in the conversation.
+    const activeSet = new Set(opts.activeSourceIds);
+    const lineCounts = new Map(
+      opts.allSources.map((s) => [s.sourceId, s.content.split("\n").length])
+    );
+    // Only TARGETED access counts as evidence — a source file explicitly
+    // named in a tool call's args (read_file path, cat/grep on a specific
+    // file). Filenames that merely appear in broad `grep -r` output do NOT
+    // count, otherwise one wildcard grep "evidences" the whole collection
+    // and the model can fabricate citations without reading anything.
+    const evidencedSourceIds = new Set<string>();
+    for (const msg of opts.history) {
+      for (const tc of msg.toolCalls ?? []) {
+        collectSourceIds(JSON.stringify(tc.args), evidencedSourceIds);
+      }
+    }
+    let doneRejections = 0;
+    const MAX_DONE_REJECTIONS = 2;
 
     const apiKey = process.env.GOOGLE_AI_API_KEY;
     if (!apiKey) {
@@ -274,21 +307,80 @@ export async function* streamAgent(
 
       // Execute tool call if present
       if (currentToolCall) {
+        // done() goes through the grounding gate before being accepted.
+        if (currentToolCall.name === "done") {
+          const rejection =
+            doneRejections < MAX_DONE_REJECTIONS
+              ? validateDoneCall(
+                  currentToolCall.args,
+                  activeSet,
+                  lineCounts,
+                  evidencedSourceIds
+                )
+              : null;
+
+          if (rejection) {
+            doneRejections++;
+            const result = `REJECTED: ${rejection}`;
+            logToolResult("Answer rejected — needs grounding", result);
+            yield {
+              type: "tool_result",
+              value: {
+                toolCallId: currentToolCall.id,
+                result,
+                summary: "Answer rejected — needs grounding",
+              },
+            };
+            messages.push({
+              role: "model",
+              parts: [
+                {
+                  functionCall: {
+                    name: currentToolCall.name,
+                    args: currentToolCall.args,
+                  },
+                },
+              ],
+            });
+            messages.push({
+              role: "user",
+              parts: [
+                {
+                  functionResponse: {
+                    name: currentToolCall.name,
+                    response: { result },
+                  },
+                },
+              ],
+            });
+            continue;
+          }
+
+          doneCalled = true;
+          finalAnswer = (currentToolCall.args.answer as string) ?? "";
+          finalCitations =
+            currentToolCall.args.insufficientSources === true
+              ? []
+              : ((currentToolCall.args.citations as AgentCitation[]) ?? []);
+          yield {
+            type: "tool_result",
+            value: {
+              toolCallId: currentToolCall.id,
+              result: "done",
+              summary: "Answer ready",
+            },
+          };
+          break;
+        }
+
         const result = await executeTool(session, currentToolCall);
+        collectSourceIds(JSON.stringify(currentToolCall.args), evidencedSourceIds);
         const summary = summarizeToolResult(currentToolCall, result, titleFor);
         logToolResult(summary, result);
         yield {
           type: "tool_result",
           value: { toolCallId: currentToolCall.id, result, summary },
         };
-
-        // Check if done was called
-        if (currentToolCall.name === "done") {
-          doneCalled = true;
-          finalAnswer = currentToolCall.args.answer as string;
-          finalCitations = currentToolCall.args.citations as AgentCitation[];
-          break;
-        }
 
         // Append model's functionCall to history, then the response. Gemini
         // requires this pairing so the next turn has a valid conversation.
@@ -351,13 +443,17 @@ function buildGeminiMessages(
 ): any[] {
   const messages: any[] = [];
 
-  // Add user question
-  messages.push({
-    role: "user",
-    parts: [{ text: question }],
-  });
+  // Map toolCallId -> tool name so replayed functionResponses carry the
+  // actual tool name (IDs look like "call-<iteration>-<timestamp>", which
+  // contains no name).
+  const toolNameById = new Map<string, string>();
+  for (const msg of history) {
+    for (const tc of msg.toolCalls ?? []) {
+      toolNameById.set(tc.id, tc.name);
+    }
+  }
 
-  // Add history
+  // Replay history in chronological order first...
   for (const msg of history) {
     if (msg.role === "assistant") {
       const parts: any[] = [{ text: msg.content }];
@@ -378,7 +474,7 @@ function buildGeminiMessages(
         for (const tr of msg.toolResults) {
           parts.push({
             functionResponse: {
-              name: tr.toolCallId.split("-")[1], // Extract tool name from ID
+              name: toolNameById.get(tr.toolCallId) ?? "bash",
               response: { result: tr.result },
             },
           });
@@ -388,7 +484,64 @@ function buildGeminiMessages(
     }
   }
 
+  // ...then the current question last.
+  messages.push({
+    role: "user",
+    parts: [{ text: question }],
+  });
+
   return messages;
+}
+
+/** Extract every `sources/<id>.md` reference from a string into the set. */
+function collectSourceIds(text: string, into: Set<string>): void {
+  for (const m of text.matchAll(/sources\/([A-Za-z0-9_-]+)\.md/g)) {
+    into.add(m[1]);
+  }
+}
+
+/**
+ * Grounding gate for done(). Returns a rejection message the model can act
+ * on, or null when the call is acceptable.
+ */
+function validateDoneCall(
+  args: Record<string, unknown>,
+  activeSet: Set<string>,
+  lineCounts: Map<string, number>,
+  evidencedSourceIds: Set<string>
+): string | null {
+  // Explicit refusal path: the model says the sources don't cover the
+  // question. Accept without citations.
+  if (args.insufficientSources === true) return null;
+
+  const citations = Array.isArray(args.citations)
+    ? (args.citations as AgentCitation[])
+    : [];
+
+  if (citations.length === 0) {
+    return "your answer has no citations. Read the relevant passages with read_file and cite the spans your claims come from. If the in-scope sources genuinely do not address the question, call done again with insufficientSources: true and briefly say so instead of answering from general knowledge.";
+  }
+
+  for (const c of citations) {
+    if (!activeSet.has(c.sourceId)) {
+      return `citation references source "${c.sourceId}", which is not in scope for this conversation. Only cite in-scope sourceIds.`;
+    }
+    const lc = lineCounts.get(c.sourceId);
+    if (
+      typeof c.lineStart !== "number" ||
+      typeof c.lineEnd !== "number" ||
+      c.lineStart < 1 ||
+      c.lineEnd < c.lineStart ||
+      (lc != null && c.lineStart > lc)
+    ) {
+      return `citation for source "${c.sourceId}" has an invalid line range (${c.lineStart}-${c.lineEnd}${lc != null ? `; the file has ${lc} lines` : ""}). Re-read the passage and cite real line numbers.`;
+    }
+    if (!evidencedSourceIds.has(c.sourceId)) {
+      return `you cited source "${c.sourceId}" but never read any of its content. Use read_file (or grep -n) on sources/${c.sourceId}.md first, then cite what you actually read.`;
+    }
+  }
+
+  return null;
 }
 
 async function executeTool(

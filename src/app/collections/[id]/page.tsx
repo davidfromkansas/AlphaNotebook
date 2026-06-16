@@ -320,6 +320,9 @@ export default function CollectionDetailPage() {
                   collectionId={collection.id}
                   sourceIds={Array.from(selectedSourceIds)}
                   totalSourceCount={collection.sources.filter((s) => s.status === "READY").length}
+                  sourceTitles={Object.fromEntries(
+                    collection.sources.map((s) => [s.id, s.title || "Untitled"])
+                  )}
                   onCitationClick={(citation: { sourceId: string }) => {
                     // Navigate to source page with citation
                     router.push(`/sources/${citation.sourceId}`);

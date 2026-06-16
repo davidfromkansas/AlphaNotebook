@@ -47,6 +47,8 @@ interface CollectionChatProps {
   collectionId: string;
   sourceIds: string[];
   totalSourceCount: number;
+  /** sourceId -> human title, used to label citation chips. */
+  sourceTitles?: Record<string, string>;
   onCitationClick?: (citation: AgentCitation) => void;
   onCollapse?: () => void;
 }
@@ -55,6 +57,7 @@ export default function CollectionChat({
   collectionId,
   sourceIds,
   totalSourceCount,
+  sourceTitles,
   onCitationClick,
   onCollapse,
 }: CollectionChatProps) {
@@ -281,6 +284,7 @@ export default function CollectionChat({
                 <AssistantBubble
                   key={i}
                   message={m}
+                  sourceTitles={sourceTitles}
                   onCitationClick={onCitationClick}
                 />
               );
@@ -407,9 +411,11 @@ function UserBubble({ content }: { content: string }) {
 
 function AssistantBubble({
   message,
+  sourceTitles,
   onCitationClick,
 }: {
   message: AgentMessage;
+  sourceTitles?: Record<string, string>;
   onCitationClick?: (citation: AgentCitation) => void;
 }) {
   return (
@@ -450,15 +456,26 @@ function AssistantBubble({
         </div>
         {message.citations && message.citations.length > 0 && (
           <div className="flex flex-wrap gap-2">
-            {message.citations.map((c, i) => (
-              <button
-                key={i}
-                onClick={() => onCitationClick?.(c)}
-                className="rounded-full border border-[#E5E7EB] bg-white px-3 py-1 text-xs font-medium text-[#374151] transition-colors hover:border-brand hover:bg-[#E7F1F2] hover:text-brand"
-              >
-                Source {i + 1}
-              </button>
-            ))}
+            {message.citations.map((c, i) => {
+              const title = sourceTitles?.[c.sourceId];
+              return (
+                <button
+                  key={i}
+                  onClick={() => onCitationClick?.(c)}
+                  title={
+                    title
+                      ? `${title} · lines ${c.lineStart}\u2013${c.lineEnd}`
+                      : undefined
+                  }
+                  className="flex max-w-[240px] items-center gap-1 rounded-full border border-[#E5E7EB] bg-white px-3 py-1 text-xs font-medium text-[#374151] transition-colors hover:border-brand hover:bg-[#E7F1F2] hover:text-brand"
+                >
+                  <span className="truncate">{title ?? `Source ${i + 1}`}</span>
+                  <span className="shrink-0 text-[#9CA3AF]">
+                    L{c.lineStart}–{c.lineEnd}
+                  </span>
+                </button>
+              );
+            })}
           </div>
         )}
       </div>
