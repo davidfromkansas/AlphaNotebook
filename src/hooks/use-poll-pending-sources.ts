@@ -34,7 +34,7 @@ export function usePollPendingSources(
     new Map(),
   );
   const intervalsRef = useRef<Map<string, number>>(new Map());
-  const pollRef = useRef<(sourceId: string) => void>();
+  const pollRef = useRef<((sourceId: string) => void) | undefined>(undefined);
 
   useEffect(() => {
     onUpdateRef.current = onUpdate;
