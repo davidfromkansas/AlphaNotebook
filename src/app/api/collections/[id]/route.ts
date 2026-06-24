@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
-import { prisma } from "@/lib/prisma";
+import { prisma, touchCollection } from "@/lib/prisma";
 
 export async function GET(
   _request: Request,
@@ -25,6 +25,8 @@ export async function GET(
   if (!collection) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
+
+  touchCollection(id).catch(() => {});
 
   return NextResponse.json(collection);
 }
@@ -68,6 +70,7 @@ export async function PATCH(
       ...(description !== undefined && {
         description: description?.trim() || null,
       }),
+      lastActivityAt: new Date(),
     },
     include: {
       sources: {

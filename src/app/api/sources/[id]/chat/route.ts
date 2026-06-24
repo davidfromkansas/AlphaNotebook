@@ -1,5 +1,5 @@
 import { auth } from "@/lib/auth";
-import { prisma } from "@/lib/prisma";
+import { prisma, touchCollection } from "@/lib/prisma";
 import {
   streamFullContextAnswer,
   REFUSAL_TEXT,
@@ -92,6 +92,7 @@ export async function POST(
     where: { id, collection: { userId } },
     select: {
       id: true,
+      collectionId: true,
       title: true,
       author: true,
       status: true,
@@ -275,6 +276,7 @@ export async function POST(
             where: { id: conversationId },
             data: { updatedAt: new Date() },
           });
+          touchCollection(source.collectionId).catch(() => {});
 
           const latencyMs = Date.now() - startedAt;
           send("done", {

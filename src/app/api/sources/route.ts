@@ -1,6 +1,6 @@
 import { after, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
-import { prisma } from "@/lib/prisma";
+import { prisma, touchCollection } from "@/lib/prisma";
 import { extractContent, parsePdfBuffer } from "@/lib/exa";
 import { indexSource } from "@/lib/indexing";
 
@@ -57,6 +57,8 @@ async function handleUrlSource(request: Request, userId: string) {
       status: "PENDING",
     },
   });
+
+  touchCollection(collectionId).catch(() => {});
 
   after(async () => {
     try {
@@ -165,6 +167,8 @@ async function handlePdfUpload(request: Request, userId: string) {
       console.error(`[indexSource] failed for ${source.id}:`, err);
     });
   }
+
+  touchCollection(collectionId).catch(() => {});
 
   // Don't send pdfData back to the client
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
