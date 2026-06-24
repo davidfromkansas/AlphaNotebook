@@ -18,7 +18,7 @@ export async function GET() {
       },
       _count: { select: { sources: true } },
     },
-    orderBy: { createdAt: "desc" },
+    orderBy: { lastActivityAt: "desc" },
   });
 
   return NextResponse.json(collections);

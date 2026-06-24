@@ -1,5 +1,5 @@
 import { auth } from "@/lib/auth";
-import { prisma } from "@/lib/prisma";
+import { prisma, touchCollection } from "@/lib/prisma";
 import { streamAgent, type AgentCitation, type AgentMessage } from "@/lib/agent";
 import type { LLMUsage } from "@/lib/llm";
 import type { SourceFile } from "@/lib/sandbox";
@@ -148,6 +148,7 @@ export async function POST(
         }
 
         if (status !== "aborted") {
+          touchCollection(id).catch(() => {});
           const latencyMs = Date.now() - startedAt;
           send("done", {
             // Forward the agent's final markdown answer so the client can

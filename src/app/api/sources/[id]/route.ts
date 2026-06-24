@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
-import { prisma } from "@/lib/prisma";
+import { prisma, touchCollection } from "@/lib/prisma";
 
 export async function GET(
   _request: Request,
@@ -73,6 +73,8 @@ export async function PATCH(
     data: { title: title.trim() },
   });
 
+  touchCollection(source.collectionId).catch(() => {});
+
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const { pdfData: _, ...updatedWithoutPdf } = updated;
   return NextResponse.json(updatedWithoutPdf);
@@ -101,6 +103,8 @@ export async function DELETE(
   }
 
   await prisma.source.delete({ where: { id } });
+
+  touchCollection(source.collectionId).catch(() => {});
 
   return NextResponse.json({ success: true });
 }

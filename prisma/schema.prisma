@@ -57,13 +57,14 @@ model VerificationToken {
 }
 
 model Collection {
-  id          String   @id @default(cuid())
-  userId      String
-  name        String
-  description String?
-  createdAt   DateTime @default(now())
-  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  sources     Source[]
+  id             String   @id @default(cuid())
+  userId         String
+  name           String
+  description    String?
+  createdAt      DateTime @default(now())
+  lastActivityAt DateTime @default(now())
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  sources        Source[]
 }
 
 model Source {
